@@ -18,7 +18,7 @@ export const ResultScreen = () => {
     const isTie = gameState.winner === 'tie';
 
     return (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xl font-sans overflow-hidden">
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xl font-sans">
 
             {/* Background effects */}
             {isWinner && !isTie && (
@@ -58,8 +58,8 @@ export const ResultScreen = () => {
                         )}
                     </div>
 
-                    {/* Add pb-6 (padding-bottom) to prevent clipping the italic descenders like Y */}
-                    <h1 className="text-[6rem] md:text-[8rem] font-black italic tracking-tighter uppercase leading-none drop-shadow-2xl mb-4 pb-6">
+                    {/* Add generous padding and overflow-visible to prevent clipping the extremely slanted italic descenders like Y */}
+                    <h1 className="text-[6rem] md:text-[8rem] font-black italic tracking-tighter uppercase leading-none drop-shadow-2xl mb-4 pb-6 pr-16 overflow-visible w-full text-center">
                         {isTie ? (
                             <span className="text-gray-400">DRAW GAME</span>
                         ) : isWinner ? (
