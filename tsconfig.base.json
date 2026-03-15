@@ -9,6 +9,8 @@
         "skipLibCheck": true,
         "forceConsistentCasingInFileNames": true,
         "resolveJsonModule": true,
-        "isolatedModules": true
+        "isolatedModules": true,
+        "noUnusedLocals": false,
+        "noUnusedParameters": false
     }
 }

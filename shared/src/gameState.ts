@@ -1,4 +1,4 @@
-import { FighterType, ActionType, PlayerStateNumber } from './types';
+import { FighterType, PlayerStateNumber } from './types';
 
 // Omit 'isReady' entirely for GameState to avoid confusion.
 // But we can just use the same type.
