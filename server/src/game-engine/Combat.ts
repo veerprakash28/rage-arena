@@ -16,6 +16,10 @@ export class Combat {
         const attackType = attackAnims[attacker.animation];
         if (!attackType) return false;
 
+        // TypeScript safe casting
+        type AttackActionType = ActionType.PUNCH | ActionType.KICK | ActionType.SMASH | ActionType.SPECIAL;
+        const validAttackType = attackType as AttackActionType;
+
         // 'hitRegistered' is set to 1 on the first frame an attack is started.
         // Combat fires only when hitRegistered is NOT yet set.
         if (attacker.actionCooldowns['hitRegistered']) return false;
@@ -23,7 +27,7 @@ export class Combat {
         // Mark as hit-checked so we don't double-hit this swing
         attacker.actionCooldowns['hitRegistered'] = attacker.actionCooldowns['activeAttack'] || 1;
 
-        const range = GAME_CONSTANTS.ATTACK_RANGE[attackType];
+        const range = GAME_CONSTANTS.ATTACK_RANGE[validAttackType];
         const reachX = attacker.facing === 'right' ? attacker.x + range : attacker.x - range;
 
         const atkMinX = Math.min(attacker.x, reachX);
@@ -35,16 +39,16 @@ export class Combat {
         const isYOverlap = Math.abs(attacker.y - defender.y) < GAME_CONSTANTS.PLAYER_HEIGHT;
 
         if (atkMaxX > defMinX && atkMinX < defMaxX && isYOverlap) {
-            this.applyHit(attackType, attacker, defender);
+            this.applyHit(validAttackType, attacker, defender);
             return true;
         }
 
         return false;
     }
 
-    private static applyHit(attackType: ActionType, attacker: PlayerStateNumber, defender: PlayerStateNumber) {
+    private static applyHit(attackType: ActionType.PUNCH | ActionType.KICK | ActionType.SMASH | ActionType.SPECIAL, attacker: PlayerStateNumber, defender: PlayerStateNumber) {
         const attackStats = GAME_CONSTANTS.ATTACKS[attackType];
-        let damage = attackStats.damage;
+        let damage: number = attackStats.damage;
         let isBlocked = false;
 
         if (defender.isBlocking && defender.facing !== attacker.facing) {
@@ -60,16 +64,29 @@ export class Combat {
         attacker.energy = Math.min(GAME_CONSTANTS.MAX_ENERGY, attacker.energy + GAME_CONSTANTS.ENERGY_PER_HIT_DEALT);
         defender.energy = Math.min(GAME_CONSTANTS.MAX_ENERGY, defender.energy + GAME_CONSTANTS.ENERGY_PER_HIT_RECEIVED);
 
-        // Apply hit stun
-        defender.actionCooldowns['stun'] = isBlocked ? Math.floor(attackStats.hitstunFrames * 0.3) : attackStats.hitstunFrames;
+        // EXTRA CRAZY GAME DEV JUICE: Massive Hitstun & Knock-ups!
+        const isHeavyAttack = attackType === ActionType.SMASH || attackType === ActionType.SPECIAL;
 
-        // Knockback
-        const knockback = attackStats.knockback * (isBlocked ? 0.3 : 1);
+        // Exaggerated hitstun frames for visceral impact
+        defender.actionCooldowns['stun'] = isBlocked ? Math.floor(attackStats.hitstunFrames * 0.5) : Math.floor(attackStats.hitstunFrames * 1.5);
+
+        // Base knockback
+        const knockback = attackStats.knockback * (isBlocked ? 0.3 : 1.2);
+
         if (attacker.facing === 'right') {
             defender.x += knockback;
         } else {
             defender.x -= knockback;
         }
+
+        // CRAZY KNOCK-UP PHYSICS for Heavy Attacks or lethal blows!
+        if (!isBlocked && (isHeavyAttack || defender.hp === 0)) {
+            // Launch the defender into the air (simulate Y velocity if the engine supports it natively, otherwise fake it with a jump state if possible)
+            // If the engine only tracks Y during jumps, we can piggyback on that:
+            defender.velocityY = -20; // Big upward spike
+            defender.y -= 1; // Detach from ground to trigger gravity in Main loop
+        }
+        defender.energy = Math.min(GAME_CONSTANTS.MAX_ENERGY, defender.energy + GAME_CONSTANTS.ENERGY_PER_HIT_RECEIVED);
 
         if (defender.hp === 0) {
             defender.animation = 'ko';

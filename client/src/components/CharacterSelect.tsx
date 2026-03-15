@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useStore } from '../store';
 import { socket } from '../socket';
 import { FighterType } from '@rage-arena/shared';
-import { Users, Copy, Check, Info } from 'lucide-react';
+import { Users, Copy, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const FIGHTERS = [

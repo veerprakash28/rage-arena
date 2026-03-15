@@ -1,53 +1,92 @@
-import { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useStore } from '../store';
 import { socket } from '../socket';
-import { GAME_CONSTANTS, GameState } from '@rage-arena/shared';
-import { Renderer } from './Renderer';
+import { PlayerStateNumber, GameState } from '@rage-arena/shared';
 import { InputManager } from './InputManager';
 import { soundEngine } from './SoundEngine';
+import { Canvas, useFrame } from '@react-three/fiber';
+import { EffectComposer, Bloom } from '@react-three/postprocessing';
+import { Environment3D } from '../components/3d/Environment3D';
+import { FighterModel } from '../components/3d/FighterModel';
+import { PerspectiveCamera } from '@react-three/drei';
+import * as THREE from 'three';
 
-export const GameCanvas = () => {
-    const canvasRef = useRef<HTMLCanvasElement>(null);
-    const requestRef = useRef<number>();
-    const rendererRef = useRef<Renderer | null>(null);
+// --- CUSTOM CAMERA CONTROLLER ---
+const CameraController = ({ me, opponent }: { me?: PlayerStateNumber, opponent?: PlayerStateNumber }) => {
+
+    useFrame((state, delta) => {
+        const camera = state.camera as THREE.PerspectiveCamera;
+        if (!me || !opponent || !camera.isPerspectiveCamera) return;
+
+        // 1. Calculate dynamic framing
+        const midX = (me.x + opponent.x) / 2;
+        const targetX = (midX - 400) * 0.025; // MATCH FighterModel.tsx
+
+        const dist = Math.abs(me.x - opponent.x);
+
+        // Dynamic zoom: closer = lower Z, further = higher Z. 
+        const targetZ = THREE.MathUtils.clamp(6 + (dist * 0.02), 8, 18);
+        const targetY = 2.5 + (dist * 0.01);
+
+        // Smoothly interpolate camera position
+        camera.position.x = THREE.MathUtils.lerp(camera.position.x, targetX, 5 * delta);
+        camera.position.y = THREE.MathUtils.lerp(camera.position.y, targetY, 5 * delta);
+        camera.position.z = THREE.MathUtils.lerp(camera.position.z, targetZ, 5 * delta);
+
+        // 2. Look At Center
+        const lookTarget = new THREE.Vector3(targetX, 1.2, 0);
+
+        // 3. Screen Shake & FOV Kick!
+        const meHit = me.actionCooldowns?.['stun'] || 0;
+        const oppHit = opponent.actionCooldowns?.['stun'] || 0;
+        const totalHit = Math.max(meHit, oppHit);
+
+        if (totalHit > 5) {
+            const intensity = 0.2;
+            camera.position.x += (Math.random() - 0.5) * intensity;
+            camera.position.y += (Math.random() - 0.5) * intensity;
+            // Cinematic FOV squeeze on impact
+            camera.fov = THREE.MathUtils.lerp(camera.fov, 40, 0.5);
+        } else {
+            camera.fov = THREE.MathUtils.lerp(camera.fov, 45, 0.1);
+        }
+
+        camera.lookAt(lookTarget);
+        camera.updateProjectionMatrix();
+    });
+
+    return null;
+};
+
+export const GameCanvas: React.FC = () => {
+    const { roomCode, playerName } = useStore();
     const inputManagerRef = useRef<InputManager | null>(null);
-    const lastStateRef = useRef<GameState | null>(null);
-    const targetStateRef = useRef<GameState | null>(null);
-    const lastTimeRef = useRef<number>(performance.now());
-    const interpolationTimeRef = useRef<number>(0);
 
-    const { roomCode } = useStore();
+    // Server state tracking
+    const [gameState, setGameState] = useState<GameState | null>(null);
+    const lastGameState = useRef<GameState | null>(null);
 
     useEffect(() => {
-        if (!canvasRef.current || !roomCode) return;
-
-        // Initialize Canvas + Renderer
-        const canvas = canvasRef.current;
-        rendererRef.current = new Renderer(canvas.getContext('2d')!, GAME_CONSTANTS.STAGE_WIDTH, GAME_CONSTANTS.STAGE_HEIGHT);
+        if (!roomCode) return;
 
         // Initialize Inputs and Sounds
         inputManagerRef.current = new InputManager(socket, roomCode);
         inputManagerRef.current.init();
-
-        // User interacted by entering room, so AudioContext can start
         soundEngine.init();
 
-        // Listen to network state updates
         const onGameState = (state: GameState) => {
-            if (!lastStateRef.current) {
-                lastStateRef.current = state;
-            } else {
-                lastStateRef.current = targetStateRef.current || state;
-            }
-            targetStateRef.current = state;
-            interpolationTimeRef.current = 0; // reset interpolation timer
+            const oldState = lastGameState.current;
+            lastGameState.current = state;
+            setGameState(state);
 
-            // Detect hits for particles and sounds
-            if (lastStateRef.current && targetStateRef.current) {
+            // Handle Audio/FX Events based on state diffs
+            if (oldState && state) {
                 const playerIds = Object.keys(state.players);
                 playerIds.forEach(id => {
-                    const oldP = lastStateRef.current!.players[id];
-                    const newP = targetStateRef.current!.players[id];
+                    const oldP = oldState.players[id];
+                    const newP = state.players[id];
+
+                    if (!oldP || !newP) return;
 
                     // Attacks
                     if (oldP.animation !== newP.animation) {
@@ -59,7 +98,6 @@ export const GameCanvas = () => {
 
                     // Hits
                     if (oldP.hp > newP.hp && newP.animation === 'hit') {
-                        rendererRef.current?.addHitEffect(newP.x, newP.y);
                         soundEngine.playPunch(); // Thud sound
                     }
 
@@ -73,46 +111,40 @@ export const GameCanvas = () => {
 
         socket.on('game-state', onGameState);
 
-        // Render loop
-        const renderLoop = (time: number) => {
-            const dt = time - lastTimeRef.current;
-            lastTimeRef.current = time;
-
-            if (targetStateRef.current && lastStateRef.current && rendererRef.current) {
-                // Add elapsed time to interpolation timer
-                interpolationTimeRef.current += dt;
-
-                // Calculate alpha (0.0 to 1.0) based on tick rate
-                // If we receive packets every 16.6ms, 16.6ms is alpha = 1.0
-                let alpha = interpolationTimeRef.current / GAME_CONSTANTS.MS_PER_TICK;
-                // Clamp alpha to prevent severe overshooting
-                alpha = Math.min(alpha, 1.2);
-
-                rendererRef.current.render(targetStateRef.current, lastStateRef.current, alpha, dt);
-            }
-
-            requestRef.current = requestAnimationFrame(renderLoop);
-        };
-
-        requestRef.current = requestAnimationFrame(renderLoop);
-
         return () => {
-            if (requestRef.current) cancelAnimationFrame(requestRef.current);
             socket.off('game-state', onGameState);
             inputManagerRef.current?.cleanup();
         };
     }, [roomCode]);
 
+    if (!gameState) return null;
+
+    const myId = Object.keys(gameState.players).find(id => gameState.players[id].name === playerName);
+    const oppId = Object.keys(gameState.players).find(id => gameState.players[id].name !== playerName);
+
+    const me = myId ? gameState.players[myId] : undefined;
+    const opponent = oppId ? gameState.players[oppId] : undefined;
+
     return (
-        <div className="w-full h-full flex items-center justify-center bg-black">
-            {/* We use aspect-video to maintain proportion (16:9 approx). The internal canvas size is fixed, CSS scales it. */}
-            <canvas
-                ref={canvasRef}
-                width={GAME_CONSTANTS.STAGE_WIDTH}
-                height={GAME_CONSTANTS.STAGE_HEIGHT}
-                className="w-full h-full object-contain"
-                
-            />
+        <div className="w-full h-full relative overflow-hidden bg-[#050510]">
+            <Canvas shadows>
+                <PerspectiveCamera makeDefault position={[0, 3.5, 12]} fov={45} />
+                <CameraController me={me} opponent={opponent} />
+
+                <Environment3D />
+
+                {me && <FighterModel player={me} />}
+                {opponent && <FighterModel player={opponent} />}
+
+                {/* Powerful Cyberpunk Bloom Post-Processing */}
+                <EffectComposer>
+                    <Bloom
+                        luminanceThreshold={1.2} // Only highly emissive objects glow (neon/eyes)
+                        mipmapBlur
+                        intensity={2.5}
+                    />
+                </EffectComposer>
+            </Canvas>
         </div>
     );
 };

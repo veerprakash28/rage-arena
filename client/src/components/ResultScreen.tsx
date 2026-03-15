@@ -13,7 +13,7 @@ export const ResultScreen = () => {
         socket.emit('return-to-lobby', { code: roomCode });
     };
 
-    const myId = Object.values(gameState.players).find(p => p.name === playerName)?.id;
+    const myId = Object.keys(gameState.players).find(id => gameState.players[id].name === playerName);
     const isWinner = gameState.winner === myId;
     const isTie = gameState.winner === 'tie';
 
@@ -59,16 +59,16 @@ export const ResultScreen = () => {
                     </div>
 
                     {/* Add generous padding and overflow-visible to prevent clipping the extremely slanted italic descenders like Y */}
-                    <h1 className="text-[6rem] md:text-[8rem] font-black italic tracking-tighter uppercase leading-none drop-shadow-2xl mb-4 pb-6 pr-16 overflow-visible w-full text-center">
+                    <h1 className="text-[6rem] md:text-[8rem] font-black italic tracking-tighter uppercase leading-none drop-shadow-2xl mb-4 pr-4 overflow-visible w-full text-center">
                         {isTie ? (
-                            <span className="text-gray-400">DRAW GAME</span>
+                            <span className="text-gray-400 pr-8">DRAW GAME&nbsp;</span>
                         ) : isWinner ? (
-                            <span className="text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 to-yellow-600 drop-shadow-[0_0_30px_rgba(234,179,8,0.6)]">
-                                VICTORY
+                            <span className="text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 to-yellow-600 drop-shadow-[0_0_30px_rgba(234,179,8,0.6)] pr-8">
+                                VICTORY&nbsp;
                             </span>
                         ) : (
-                            <span className="text-transparent bg-clip-text bg-gradient-to-b from-red-500 to-red-900 drop-shadow-[0_0_30px_rgba(220,38,38,0.6)]">
-                                DEFEATED
+                            <span className="text-transparent bg-clip-text bg-gradient-to-b from-red-500 to-red-900 drop-shadow-[0_0_30px_rgba(220,38,38,0.6)] pr-8">
+                                DEFEATED&nbsp;
                             </span>
                         )}
                     </h1>

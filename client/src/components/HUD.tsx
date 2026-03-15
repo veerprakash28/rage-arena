@@ -146,8 +146,8 @@ export const HUD = () => {
                             exit={{ scale: 2, opacity: 0 }}
                             className="relative"
                         >
-                            <span className="text-[12rem] md:text-[20rem] font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-white to-gray-500 drop-shadow-[0_0_30px_rgba(255,255,255,0.5)]">
-                                {countdown === 0 ? 'FIGHT!' : countdown}
+                            <span className="text-[12rem] md:text-[20rem] font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-white to-gray-500 drop-shadow-[0_0_30px_rgba(255,255,255,0.5)] pr-8">
+                                {countdown === 0 ? 'FIGHT!\u00A0' : `${countdown}\u00A0`}
                             </span>
                         </motion.div>
                     )}
