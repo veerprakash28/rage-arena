@@ -8,212 +8,267 @@ interface FighterModelProps {
 }
 
 // Convert 2D canvas coords to 3D world coords
-// Canvas width: 800, height: 450. Ground Y: 380
-// Origin (0,0,0) in 3D should roughly map to (400, 380) in 2D.
 const mapX = (x: number) => (x - 400) * 0.025;
 const mapY = (y: number) => (380 - y) * 0.025;
 
 // Basic Material Palettes
 const materials = {
     [FighterType.IRON_BOXER]: {
-        primary: new THREE.MeshStandardMaterial({ color: '#c0a030', roughness: 0.3, metalness: 0.8 }),
-        secondary: new THREE.MeshStandardMaterial({ color: '#222222', roughness: 0.6 }),
-        accent: new THREE.MeshStandardMaterial({ color: '#ff2020', emissive: '#ff0000', emissiveIntensity: 2 })
+        primary: new THREE.MeshPhysicalMaterial({ color: '#c0a030', roughness: 0.1, metalness: 0.9, clearcoat: 1.0 }),
+        secondary: new THREE.MeshPhysicalMaterial({ color: '#222222', roughness: 0.4, metalness: 0.8 }),
+        accent: new THREE.MeshPhysicalMaterial({ color: '#ff2020', emissive: '#ff0000', emissiveIntensity: 0.5 }),
+        skin: new THREE.MeshStandardMaterial({ color: '#ffdbac', roughness: 0.8 }),
+        hair: new THREE.MeshStandardMaterial({ color: '#111111', roughness: 0.9 })
     },
     [FighterType.SHADOW_NINJA]: {
-        primary: new THREE.MeshStandardMaterial({ color: '#1a1a2e', roughness: 0.8, metalness: 0.1 }),
-        secondary: new THREE.MeshStandardMaterial({ color: '#0f0f1a', roughness: 0.9 }),
-        accent: new THREE.MeshStandardMaterial({ color: '#00f3ff', emissive: '#00ccff', emissiveIntensity: 2 })
+        primary: new THREE.MeshPhysicalMaterial({ color: '#1a1a2e', roughness: 0.2, metalness: 0.5, clearcoat: 0.5 }),
+        secondary: new THREE.MeshPhysicalMaterial({ color: '#0f0f1a', roughness: 0.5, metalness: 0.9 }),
+        accent: new THREE.MeshPhysicalMaterial({ color: '#00f3ff', emissive: '#00ccff', emissiveIntensity: 0.5 }),
+        skin: new THREE.MeshStandardMaterial({ color: '#333333', roughness: 0.5 }),
+        hair: new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.9 })
     },
     [FighterType.STREET_BRAWLER]: {
-        primary: new THREE.MeshStandardMaterial({ color: '#882222', roughness: 0.7, metalness: 0.2 }),
-        secondary: new THREE.MeshStandardMaterial({ color: '#111111', roughness: 0.8 }),
-        accent: new THREE.MeshStandardMaterial({ color: '#ffffff', emissive: '#ffffff', emissiveIntensity: 1 })
+        primary: new THREE.MeshPhysicalMaterial({ color: '#882222', roughness: 0.4, metalness: 0.3, clearcoat: 0.2 }),
+        secondary: new THREE.MeshPhysicalMaterial({ color: '#111111', roughness: 0.6 }),
+        accent: new THREE.MeshPhysicalMaterial({ color: '#ffffff', emissive: '#ffffff', emissiveIntensity: 0.2 }),
+        skin: new THREE.MeshStandardMaterial({ color: '#e0ac69', roughness: 0.7 }),
+        hair: new THREE.MeshStandardMaterial({ color: '#63472b', roughness: 0.9 })
     }
 };
 
 export const FighterModel: React.FC<FighterModelProps> = ({ player }) => {
     const groupRef = useRef<THREE.Group>(null);
-    const torsoRef = useRef<THREE.Mesh>(null);
+    const waistRef = useRef<THREE.Group>(null);
+    const chestRef = useRef<THREE.Group>(null);
     const headRef = useRef<THREE.Group>(null);
 
-    // Joint Refs for IK
+    // Joint Refs
+    const shoulderL = useRef<THREE.Group>(null);
     const armL = useRef<THREE.Group>(null);
+    const forearmL = useRef<THREE.Group>(null);
+    const shoulderR = useRef<THREE.Group>(null);
     const armR = useRef<THREE.Group>(null);
+    const forearmR = useRef<THREE.Group>(null);
+
     const legL = useRef<THREE.Group>(null);
+    const calfL = useRef<THREE.Group>(null);
     const legR = useRef<THREE.Group>(null);
+    const calfR = useRef<THREE.Group>(null);
 
     const mats = materials[player.fighter] || materials[FighterType.STREET_BRAWLER];
     const baseColor = new THREE.Color(player.color);
 
-    // Dynamic material instance for color tinting
     const primaryMat = useMemo(() => {
         const m = mats.primary.clone();
-        m.color.lerp(baseColor, 0.5); // Blend literal fighter type color with player color selection
+        m.color.lerp(baseColor, 0.3);
         return m;
-    }, [player.color, player.fighter]);
+    }, [player.color, player.fighter, mats.primary]);
 
+    const skinMat = useMemo(() => {
+        const m = (mats as any).skin.clone();
+        if (player.fighter === FighterType.STREET_BRAWLER) m.color.lerp(baseColor, 0.1);
+        return m;
+    }, [player.color, player.fighter, (mats as any).skin]);
+
+    // [x] Phase 15: Post-Humanoid Polish
+    //     [x] Remove distracting emissive glows
+    //     [x] Implement 3/4 heroic combat stance for 3D depth
+    //     [x] Fix orientation (facing) calibration
+    //     [x] Strike duration resilience for lag
     useFrame((state) => {
         if (!groupRef.current) return;
-
         let t = state.clock.elapsedTime;
         const { x, y, facing, animation, actionCooldowns } = player;
 
-        // Crazy Game Dev Trick: HIT STOP!
-        // If a player is in the first few frames of severe hitstun, we FREEZE their local animation time
-        // This gives attacks massive, bone-crunching weight
         const stunFrames = actionCooldowns?.['stun'] || 0;
-        if (stunFrames > 0) {
-            // Locally freeze this character's animation to the exact moment of impact
-            t = t - (stunFrames * 0.05);
-        }
+        if (stunFrames > 0) t = t - (stunFrames * 0.05);
 
-        // 1. Position tracking (Interpolated smoothly from discrete server ticks)
         const targetX = mapX(x);
         const targetY = mapY(y);
-
         groupRef.current.position.x = THREE.MathUtils.lerp(groupRef.current.position.x, targetX, 0.3);
         groupRef.current.position.y = THREE.MathUtils.lerp(groupRef.current.position.y, targetY, 0.3);
-
-        // 2. Facing
-        const targetRotY = facing === 'left' ? -Math.PI / 2 : Math.PI / 2;
+        // 2. Facing (Offset by PI/2 to ensure Side-On Brawler View)
+        // If they were facing camera at ±PI/2, then 0/PI is sideways.
+        const targetRotY = facing === 'left' ? Math.PI : 0;
         groupRef.current.rotation.y = THREE.MathUtils.lerp(groupRef.current.rotation.y, targetRotY, 0.2);
 
-        // 3. Animation State Machine
         let walkT = 0;
         let punchT = 0;
         let kickT = 0;
 
         if (animation === 'walk') walkT = t * 15;
-        if (animation === 'punch' || animation === 'smash' || animation === 'special') punchT = 1;
-        if (animation === 'kick') kickT = 1;
 
-        // Apply procedural IK rotations
-        if (torsoRef.current) {
-            torsoRef.current.position.y = 1.5 + Math.sin(t * 5) * 0.05; // Idle breathing
+        // LAG RESILIENCE: Striking poses are visual-only transients
+        // We pulse them and let them decay even if state is stuck
+        const strikeDuration = 0.4; // seconds
+        const isStriking = animation === 'punch' || animation === 'smash' || animation === 'special' || animation === 'kick';
+
+        if (isStriking) {
+            const strikeT = (t % strikeDuration) / strikeDuration;
+            if (animation === 'kick') kickT = Math.sin(strikeT * Math.PI);
+            else punchT = Math.sin(strikeT * Math.PI);
+        }
+
+        const velocityX = targetX - groupRef.current.position.x;
+        groupRef.current.rotation.z = THREE.MathUtils.lerp(groupRef.current.rotation.z, -velocityX * 0.5, 0.1);
+
+        if (waistRef.current && chestRef.current) {
+            waistRef.current.position.y = 1.0 + Math.sin(t * 5) * 0.05;
+
+            // HEROIC STANCE: 3/4 Internal Rotation for 3D Volume
+            // We twist the body so it's not perfectly flat to the camera
+            const stanceY = facing === 'left' ? -0.4 : 0.4;
+            waistRef.current.rotation.y = THREE.MathUtils.lerp(waistRef.current.rotation.y, stanceY, 0.1);
+            chestRef.current.rotation.y = THREE.MathUtils.lerp(chestRef.current.rotation.y, stanceY * 0.5, 0.1);
+
             if (animation === 'block') {
-                torsoRef.current.rotation.x = -0.2; // lean back
+                waistRef.current.rotation.x = -0.1;
+                chestRef.current.rotation.x = -0.3;
             } else if (punchT > 0 || kickT > 0) {
-                torsoRef.current.rotation.x = 0.2; // lean in
+                waistRef.current.rotation.x = 0.2;
+                chestRef.current.rotation.x = 0.2;
+                waistRef.current.rotation.y = 0; // Square up to target during impact
             } else {
-                torsoRef.current.rotation.x = 0;
+                waistRef.current.rotation.x = 0;
+                chestRef.current.rotation.x = 0;
             }
         }
 
-        // Arms
-        if (armL.current && armR.current) {
+        if (armL.current && forearmL.current) {
             if (animation === 'block') {
-                armL.current.rotation.z = 2.5; // fold up
-                armR.current.rotation.z = 2.5;
+                armL.current.rotation.z = 1.8;
+                forearmL.current.rotation.z = 1.6;
             } else if (punchT > 0) {
-                armL.current.rotation.z = 1.6; // extend front arm
-                armR.current.rotation.z = -0.5; // pull back arm
+                armL.current.rotation.z = 1.8;
+                forearmL.current.rotation.z = 0.1;
             } else {
-                armL.current.rotation.z = Math.sin(walkT) * 1.0;
-                armR.current.rotation.z = Math.sin(walkT + Math.PI) * 1.0;
+                armL.current.rotation.z = 0.8 + Math.sin(walkT) * 0.4;
+                forearmL.current.rotation.z = 1.0 + Math.abs(Math.sin(walkT)) * 0.3;
+            }
+        }
+        if (armR.current && forearmR.current) {
+            if (animation === 'block') {
+                armR.current.rotation.z = 1.8;
+                forearmR.current.rotation.z = 1.6;
+            } else {
+                armR.current.rotation.z = 0.8 + Math.sin(walkT + Math.PI) * 0.4;
+                forearmR.current.rotation.z = 1.0 + Math.abs(Math.sin(walkT + Math.PI)) * 0.3;
             }
         }
 
-        // Legs
-        if (legL.current && legR.current) {
+        if (legL.current && calfL.current) {
             if (kickT > 0) {
-                legL.current.rotation.z = -1.8; // high kick
-                legR.current.rotation.z = 0.2; // plant foot
+                legL.current.rotation.z = -2.0;
+                calfL.current.rotation.z = -0.5;
             } else if (animation === 'walk') {
                 legL.current.rotation.z = Math.sin(walkT) * 0.8;
-                legR.current.rotation.z = Math.sin(walkT + Math.PI) * 0.8;
+                calfL.current.rotation.z = Math.max(0, -Math.sin(walkT)) * 1.0;
             } else {
-                legL.current.rotation.z = 0;
-                legR.current.rotation.z = 0;
+                legL.current.rotation.z = 0.2;
+                calfL.current.rotation.z = 0.4;
+            }
+        }
+        if (legR.current && calfR.current) {
+            if (animation === 'walk') {
+                legR.current.rotation.z = Math.sin(walkT + Math.PI) * 0.8;
+                calfR.current.rotation.z = Math.max(0, -Math.sin(walkT + Math.PI)) * 1.0;
+            } else {
+                legR.current.rotation.z = 0.2;
+                calfR.current.rotation.z = 0.4;
             }
         }
 
-        // KO State
         if (animation === 'ko') {
             groupRef.current.rotation.z = THREE.MathUtils.lerp(groupRef.current.rotation.z, facing === 'left' ? -Math.PI / 2 : Math.PI / 2, 0.1);
             groupRef.current.position.y = 0.5;
         } else if (animation === 'hit') {
-            // More visceral flinch!
-            groupRef.current.rotation.z = facing === 'left' ? -0.4 : 0.4;
-        } else {
-            groupRef.current.rotation.z = THREE.MathUtils.lerp(groupRef.current.rotation.z, 0, 0.2);
+            groupRef.current.rotation.z += (Math.random() - 0.5) * 0.2;
         }
     });
 
     return (
-        <group ref={groupRef} receiveShadow castShadow>
-            {/* Pivot at base (feet at y=0) */}
+        <group ref={groupRef}>
+            <pointLight color={player.color} intensity={5} distance={4} decay={2} position={[0, 1, 0.5]} />
 
-            {/* Torso (Bouncy Capsule) */}
-            <mesh ref={torsoRef} castShadow position={[0, 1.5, 0]}>
-                <capsuleGeometry args={[0.6, 0.5, 16, 32]} />
-                <primitive object={primaryMat} attach="material" />
+            <group ref={waistRef} position={[0, 1, 0]}>
+                <mesh castShadow>
+                    <capsuleGeometry args={[0.25, 0.3, 16, 16]} />
+                    <primitive object={mats.secondary} attach="material" />
+                </mesh>
 
-                {/* Head (Round Sphere) */}
-                <group ref={headRef} position={[0, 0.9, 0]}>
+                <group ref={chestRef} position={[0, 0.4, 0]}>
                     <mesh castShadow>
-                        <sphereGeometry args={[0.45, 32, 32]} />
-                        <primitive object={primaryMat} attach="material" />
+                        <boxGeometry args={[0.4, 0.6, 0.8]} />
+                        <primitive
+                            object={player.animation === 'hit' ? new THREE.MeshBasicMaterial({ color: '#ffffff' }) : primaryMat}
+                            attach="material"
+                        />
                     </mesh>
-                    {/* Glowing Eyes/Visor */}
-                    <mesh position={[0.3, 0.05, 0]} rotation={[0, 0, Math.PI / 2]}>
-                        <capsuleGeometry args={[0.08, 0.4, 16, 16]} />
-                        <primitive object={mats.accent} attach="material" />
-                    </mesh>
+
+                    <group position={[0, 0.25, 0.5]} ref={shoulderL}>
+                        <mesh castShadow><sphereGeometry args={[0.2, 16, 16]} /><primitive object={mats.secondary} attach="material" /></mesh>
+                        <group ref={armL}>
+                            <mesh position={[0, -0.25, 0]} castShadow><capsuleGeometry args={[0.12, 0.3, 16, 16]} /><primitive object={skinMat} attach="material" /></mesh>
+                            <group position={[0, -0.5, 0]} ref={forearmL}>
+                                <mesh position={[0, -0.2, 0]} castShadow><capsuleGeometry args={[0.1, 0.3, 16, 16]} /><primitive object={mats.secondary} attach="material" /></mesh>
+                                <mesh position={[0, -0.45, 0]}><sphereGeometry args={[0.25, 16, 16]} /><primitive object={mats.accent} attach="material" /></mesh>
+                            </group>
+                        </group>
+                    </group>
+
+                    <group position={[0, 0.25, -0.5]} ref={shoulderR}>
+                        <mesh castShadow><sphereGeometry args={[0.2, 16, 16]} /><primitive object={mats.secondary} attach="material" /></mesh>
+                        <group ref={armR}>
+                            <mesh position={[0, -0.25, 0]} castShadow><capsuleGeometry args={[0.12, 0.3, 16, 16]} /><primitive object={skinMat} attach="material" /></mesh>
+                            <group position={[0, -0.5, 0]} ref={forearmR}>
+                                <mesh position={[0, -0.2, 0]} castShadow><capsuleGeometry args={[0.1, 0.3, 16, 16]} /><primitive object={mats.secondary} attach="material" /></mesh>
+                                <mesh position={[0, -0.45, 0]}><sphereGeometry args={[0.25, 16, 16]} /><primitive object={mats.accent} attach="material" /></mesh>
+                            </group>
+                        </group>
+                    </group>
+
+                    <group position={[0, 0.5, 0]} ref={headRef}>
+                        <mesh castShadow>
+                            <sphereGeometry args={[0.3, 32, 32]} />
+                            <primitive
+                                object={player.animation === 'hit' ? new THREE.MeshBasicMaterial({ color: '#ffffff' }) : skinMat}
+                                attach="material"
+                            />
+                        </mesh>
+                        {player.fighter === FighterType.IRON_BOXER && (
+                            <group position={[0, 0.2, 0]}>
+                                <mesh><boxGeometry args={[0.35, 0.1, 0.5]} /><primitive object={mats.hair} attach="material" /></mesh>
+                                <mesh position={[0.2, -0.2, 0]}><boxGeometry args={[0.1, 0.3, 0.5]} /><primitive object={mats.accent} attach="material" /></mesh>
+                            </group>
+                        )}
+                        {player.fighter === FighterType.SHADOW_NINJA && (
+                            <group position={[0, 0.2, 0]}>
+                                <mesh rotation={[0.5, 0, 0]}><coneGeometry args={[0.1, 0.6, 4]} /><primitive object={mats.hair} attach="material" /></mesh>
+                                <mesh position={[0.25, -0.1, 0]}><boxGeometry args={[0.1, 0.1, 0.4]} /><primitive object={mats.accent} attach="material" /></mesh>
+                            </group>
+                        )}
+                        {player.fighter === FighterType.STREET_BRAWLER && (
+                            <mesh position={[0, 0.3, 0]}><boxGeometry args={[0.3, 0.3, 0.1]} /><primitive object={mats.hair} attach="material" /></mesh>
+                        )}
+                    </group>
                 </group>
 
-                {/* Left Arm (Front to camera) */}
-                <group position={[0, 0.3, 0.65]} ref={armL}>
-                    <mesh position={[0, -0.5, 0]} castShadow>
-                        <capsuleGeometry args={[0.2, 0.6, 16, 16]} />
-                        <primitive object={mats.secondary} attach="material" />
-                    </mesh>
-                    {/* Glove/Hand (Round Sphere) */}
-                    <mesh position={[0, -1.1, 0]}>
-                        <sphereGeometry args={[0.35, 32, 32]} />
-                        <primitive object={mats.accent} attach="material" />
-                    </mesh>
+                <group position={[0, -0.2, 0.2]} ref={legL}>
+                    <mesh position={[0, -0.3, 0]} castShadow><capsuleGeometry args={[0.15, 0.4, 16, 16]} /><primitive object={primaryMat} attach="material" /></mesh>
+                    <group position={[0, -0.6, 0]} ref={calfL}>
+                        <mesh position={[0, -0.3, 0]} castShadow><capsuleGeometry args={[0.13, 0.4, 16, 16]} /><primitive object={mats.secondary} attach="material" /></mesh>
+                        <mesh position={[0.1, -0.6, 0]} rotation={[0, 0, Math.PI / 2]} castShadow><capsuleGeometry args={[0.1, 0.25, 16, 16]} /><primitive object={mats.secondary} attach="material" /></mesh>
+                    </group>
                 </group>
 
-                {/* Right Arm (Back) */}
-                <group position={[0, 0.3, -0.65]} ref={armR}>
-                    <mesh position={[0, -0.5, 0]} castShadow>
-                        <capsuleGeometry args={[0.2, 0.6, 16, 16]} />
-                        <primitive object={mats.secondary} attach="material" />
-                    </mesh>
-                    <mesh position={[0, -1.1, 0]}>
-                        <sphereGeometry args={[0.35, 32, 32]} />
-                        <primitive object={mats.accent} attach="material" />
-                    </mesh>
+                <group position={[0, -0.2, -0.2]} ref={legR}>
+                    <mesh position={[0, -0.3, 0]} castShadow><capsuleGeometry args={[0.15, 0.4, 16, 16]} /><primitive object={primaryMat} attach="material" /></mesh>
+                    <group position={[0, -0.6, 0]} ref={calfR}>
+                        <mesh position={[0, -0.3, 0]} castShadow><capsuleGeometry args={[0.13, 0.4, 16, 16]} /><primitive object={mats.secondary} attach="material" /></mesh>
+                        <mesh position={[0.1, -0.6, 0]} rotation={[0, 0, Math.PI / 2]} castShadow><capsuleGeometry args={[0.1, 0.25, 16, 16]} /><primitive object={mats.secondary} attach="material" /></mesh>
+                    </group>
                 </group>
-
-                {/* Left Leg */}
-                <group position={[0, -0.7, 0.35]} ref={legL}>
-                    <mesh position={[0, -0.5, 0]} castShadow>
-                        <capsuleGeometry args={[0.22, 0.6, 16, 16]} />
-                        <primitive object={mats.secondary} attach="material" />
-                    </mesh>
-                    {/* Foot */}
-                    <mesh position={[0.1, -1.0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
-                        <capsuleGeometry args={[0.2, 0.3, 16, 16]} />
-                        <primitive object={mats.secondary} attach="material" />
-                    </mesh>
-                </group>
-
-                {/* Right Leg */}
-                <group position={[0, -0.7, -0.35]} ref={legR}>
-                    <mesh position={[0, -0.5, 0]} castShadow>
-                        <capsuleGeometry args={[0.22, 0.6, 16, 16]} />
-                        <primitive object={mats.secondary} attach="material" />
-                    </mesh>
-                    {/* Foot */}
-                    <mesh position={[0.1, -1.0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
-                        <capsuleGeometry args={[0.2, 0.3, 16, 16]} />
-                        <primitive object={mats.secondary} attach="material" />
-                    </mesh>
-                </group>
-
-            </mesh>
+            </group>
         </group>
     );
 };
