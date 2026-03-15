@@ -1,0 +1,32 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", "sans-serif";
+  --font-display: "Oswald", "sans-serif";
+  
+  --color-neon-red: #ff2a2a;
+  --color-neon-blue: #00f0ff;
+}
+
+@layer utilities {
+  .text-glow {
+    text-shadow: 0 0 10px var(--color-neon-red), 0 0 20px var(--color-neon-red);
+  }
+  .text-glow-blue {
+    text-shadow: 0 0 10px var(--color-neon-blue), 0 0 20px var(--color-neon-blue);
+  }
+  .box-glow {
+    box-shadow: 0 0 15px rgba(255, 42, 42, 0.5);
+  }
+  .title-text {
+    font-family: var(--font-display);
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+  .glass-panel {
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+}
