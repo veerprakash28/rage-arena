@@ -14,8 +14,9 @@ app.use(cors());
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
     cors: {
-        origin: '*', // Allow development client
-        methods: ['GET', 'POST']
+        origin: process.env.CLIENT_URL || '*', // Specify exact Vercel URL in Railway settings
+        methods: ['GET', 'POST'],
+        credentials: true
     }
 });
 

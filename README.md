@@ -28,3 +28,11 @@ A real-time multiplayer browser fighting game built with React, Node.js, and Soc
 
    - **Client**: `http://localhost:3000`
    - **Server**: `http://localhost:3001`
+
+## Deployment 🚀
+
+Rage Arena is optimized for deployment on **Railway** (Server) and **Vercel** (Client).
+
+### Quick Setup:
+1. **Server (Railway)**: Build command `npm install && npm run build`, Start command `npm start`.
+2. **Client (Vercel)**: Build command `npm run build`, env var `VITE_SERVER_URL` set to your Railway URL.
