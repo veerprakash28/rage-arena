@@ -14,24 +14,33 @@ const mapY = (y: number) => (380 - y) * 0.025;
 // Basic Material Palettes
 const materials = {
     [FighterType.IRON_BOXER]: {
-        primary: new THREE.MeshPhysicalMaterial({ color: '#c0a030', roughness: 0.1, metalness: 0.9, clearcoat: 1.0 }),
+        primary: new THREE.MeshPhysicalMaterial({
+            color: '#c0a030', roughness: 0.1, metalness: 0.9, clearcoat: 1.0,
+            sheen: 1.0, sheenRoughness: 0.2, sheenColor: '#ffffff'
+        }),
         secondary: new THREE.MeshPhysicalMaterial({ color: '#222222', roughness: 0.4, metalness: 0.8 }),
         accent: new THREE.MeshPhysicalMaterial({ color: '#ff2020', emissive: '#ff0000', emissiveIntensity: 0.5 }),
-        skin: new THREE.MeshStandardMaterial({ color: '#ffdbac', roughness: 0.8 }),
+        skin: new THREE.MeshStandardMaterial({ color: '#ffdbac', roughness: 0.6 }),
         hair: new THREE.MeshStandardMaterial({ color: '#111111', roughness: 0.9 })
     },
     [FighterType.SHADOW_NINJA]: {
-        primary: new THREE.MeshPhysicalMaterial({ color: '#1a1a2e', roughness: 0.2, metalness: 0.5, clearcoat: 0.5 }),
+        primary: new THREE.MeshPhysicalMaterial({
+            color: '#1a1a2e', roughness: 0.2, metalness: 0.5, clearcoat: 0.5,
+            sheen: 1.0, sheenColor: '#00f3ff'
+        }),
         secondary: new THREE.MeshPhysicalMaterial({ color: '#0f0f1a', roughness: 0.5, metalness: 0.9 }),
         accent: new THREE.MeshPhysicalMaterial({ color: '#00f3ff', emissive: '#00ccff', emissiveIntensity: 0.5 }),
-        skin: new THREE.MeshStandardMaterial({ color: '#333333', roughness: 0.5 }),
+        skin: new THREE.MeshStandardMaterial({ color: '#333333', roughness: 0.4 }),
         hair: new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.9 })
     },
     [FighterType.STREET_BRAWLER]: {
-        primary: new THREE.MeshPhysicalMaterial({ color: '#882222', roughness: 0.4, metalness: 0.3, clearcoat: 0.2 }),
+        primary: new THREE.MeshPhysicalMaterial({
+            color: '#882222', roughness: 0.4, metalness: 0.3, clearcoat: 0.2,
+            sheen: 0.5, sheenColor: '#ffffff'
+        }),
         secondary: new THREE.MeshPhysicalMaterial({ color: '#111111', roughness: 0.6 }),
         accent: new THREE.MeshPhysicalMaterial({ color: '#ffffff', emissive: '#ffffff', emissiveIntensity: 0.2 }),
-        skin: new THREE.MeshStandardMaterial({ color: '#e0ac69', roughness: 0.7 }),
+        skin: new THREE.MeshStandardMaterial({ color: '#e0ac69', roughness: 0.5 }),
         hair: new THREE.MeshStandardMaterial({ color: '#63472b', roughness: 0.9 })
     }
 };
@@ -189,83 +198,178 @@ export const FighterModel: React.FC<FighterModelProps> = ({ player }) => {
     return (
         <group ref={groupRef}>
             <pointLight color={player.color} intensity={5} distance={4} decay={2} position={[0, 1, 0.5]} />
-
+            {/* WAIST (Central Hub) */}
             <group ref={waistRef} position={[0, 1, 0]}>
                 <mesh castShadow>
-                    <capsuleGeometry args={[0.25, 0.3, 16, 16]} />
+                    <capsuleGeometry args={[0.22, 0.25, 16, 16]} />
                     <primitive object={mats.secondary} attach="material" />
                 </mesh>
 
-                <group ref={chestRef} position={[0, 0.4, 0]}>
+                {/* ABDOMINALS (Premium Core Sculpt) */}
+                <group position={[0.2, 0, 0]}>
+                    {[...Array(6)].map((_, i) => (
+                        <mesh key={i} position={[0, 0.15 - (i % 3) * 0.12, (i < 3 ? 0.08 : -0.08)]} scale={[0.5, 1, 1]}>
+                            <sphereGeometry args={[0.07, 8, 8]} />
+                            <primitive object={skinMat} attach="material" />
+                        </mesh>
+                    ))}
+                </group>
+
+                {/* CHEST (Upper Torso) */}
+                <group ref={chestRef} position={[0, 0.35, 0]}>
                     <mesh castShadow>
-                        <boxGeometry args={[0.4, 0.6, 0.8]} />
+                        <boxGeometry args={[0.35, 0.55, 0.7]} />
                         <primitive
                             object={player.animation === 'hit' ? new THREE.MeshBasicMaterial({ color: '#ffffff' }) : primaryMat}
                             attach="material"
                         />
                     </mesh>
 
-                    <group position={[0, 0.25, 0.5]} ref={shoulderL}>
-                        <mesh castShadow><sphereGeometry args={[0.2, 16, 16]} /><primitive object={mats.secondary} attach="material" /></mesh>
+                    {/* PECTORALS (Premium Chest Sculpt) */}
+                    <group position={[0.2, 0, 0]}>
+                        <mesh position={[0, 0, 0.18]} rotation={[0, 0, 0.1]} scale={[0.3, 1, 1.2]}>
+                            <sphereGeometry args={[0.18, 16, 16]} />
+                            <primitive object={skinMat} attach="material" />
+                        </mesh>
+                        <mesh position={[0, 0, -0.18]} rotation={[0, 0, 0.1]} scale={[0.3, 1, 1.2]}>
+                            <sphereGeometry args={[0.18, 16, 16]} />
+                            <primitive object={skinMat} attach="material" />
+                        </mesh>
+                    </group>
+
+                    {/* SHOULDERS & DELTOIDS */}
+                    <group position={[0, 0.2, 0.45]} ref={shoulderL}>
+                        <mesh castShadow>
+                            <sphereGeometry args={[0.22, 16, 16]} />
+                            <primitive object={mats.secondary} attach="material" />
+                        </mesh>
                         <group ref={armL}>
-                            <mesh position={[0, -0.25, 0]} castShadow><capsuleGeometry args={[0.12, 0.3, 16, 16]} /><primitive object={skinMat} attach="material" /></mesh>
+                            <mesh position={[0, -0.2, 0]} castShadow>
+                                <capsuleGeometry args={[0.14, 0.35, 16, 16]} />
+                                <primitive object={skinMat} attach="material" />
+                            </mesh>
+                            {/* Tricep/Bicep Sculpt */}
+                            <mesh position={[0, -0.2, 0]} scale={[1.2, 1, 1]}>
+                                <sphereGeometry args={[0.12, 12, 12]} />
+                                <primitive object={skinMat} attach="material" />
+                            </mesh>
+
                             <group position={[0, -0.5, 0]} ref={forearmL}>
-                                <mesh position={[0, -0.2, 0]} castShadow><capsuleGeometry args={[0.1, 0.3, 16, 16]} /><primitive object={mats.secondary} attach="material" /></mesh>
-                                <mesh position={[0, -0.45, 0]}><sphereGeometry args={[0.25, 16, 16]} /><primitive object={mats.accent} attach="material" /></mesh>
+                                <mesh position={[0, -0.2, 0]} castShadow>
+                                    <capsuleGeometry args={[0.12, 0.3, 16, 16]} />
+                                    <primitive object={mats.secondary} attach="material" />
+                                </mesh>
+                                {/* Glove */}
+                                <mesh position={[0, -0.4, 0]}>
+                                    <sphereGeometry args={[0.22, 16, 16]} />
+                                    <primitive object={mats.accent} attach="material" />
+                                </mesh>
                             </group>
                         </group>
                     </group>
 
-                    <group position={[0, 0.25, -0.5]} ref={shoulderR}>
-                        <mesh castShadow><sphereGeometry args={[0.2, 16, 16]} /><primitive object={mats.secondary} attach="material" /></mesh>
+                    <group position={[0, 0.2, -0.45]} ref={shoulderR}>
+                        <mesh castShadow>
+                            <sphereGeometry args={[0.22, 16, 16]} />
+                            <primitive object={mats.secondary} attach="material" />
+                        </mesh>
                         <group ref={armR}>
-                            <mesh position={[0, -0.25, 0]} castShadow><capsuleGeometry args={[0.12, 0.3, 16, 16]} /><primitive object={skinMat} attach="material" /></mesh>
+                            <mesh position={[0, -0.2, 0]} castShadow>
+                                <capsuleGeometry args={[0.14, 0.35, 16, 16]} />
+                                <primitive object={skinMat} attach="material" />
+                            </mesh>
+                            <mesh position={[0, -0.2, 0]} scale={[1.2, 1, 1]}>
+                                <sphereGeometry args={[0.12, 12, 12]} />
+                                <primitive object={skinMat} attach="material" />
+                            </mesh>
+
                             <group position={[0, -0.5, 0]} ref={forearmR}>
-                                <mesh position={[0, -0.2, 0]} castShadow><capsuleGeometry args={[0.1, 0.3, 16, 16]} /><primitive object={mats.secondary} attach="material" /></mesh>
-                                <mesh position={[0, -0.45, 0]}><sphereGeometry args={[0.25, 16, 16]} /><primitive object={mats.accent} attach="material" /></mesh>
+                                <mesh position={[0, -0.2, 0]} castShadow>
+                                    <capsuleGeometry args={[0.12, 0.3, 16, 16]} />
+                                    <primitive object={mats.secondary} attach="material" />
+                                </mesh>
+                                <mesh position={[0, -0.4, 0]}>
+                                    <sphereGeometry args={[0.22, 16, 16]} />
+                                    <primitive object={mats.accent} attach="material" />
+                                </mesh>
                             </group>
                         </group>
                     </group>
 
+                    {/* HEAD ASSEMBLY */}
                     <group position={[0, 0.5, 0]} ref={headRef}>
                         <mesh castShadow>
-                            <sphereGeometry args={[0.3, 32, 32]} />
+                            <sphereGeometry args={[0.28, 32, 32]} />
                             <primitive
                                 object={player.animation === 'hit' ? new THREE.MeshBasicMaterial({ color: '#ffffff' }) : skinMat}
                                 attach="material"
                             />
                         </mesh>
+                        {/* Detailed Facial Kitbash */}
+                        <mesh position={[0.2, 0, 0.08]} scale={[1, 0.5, 0.5]}><sphereGeometry args={[0.04, 8, 8]} /><meshBasicMaterial color="#ffffff" /></mesh>
+                        <mesh position={[0.2, 0, -0.08]} scale={[1, 0.5, 0.5]}><sphereGeometry args={[0.04, 8, 8]} /><meshBasicMaterial color="#ffffff" /></mesh>
+
                         {player.fighter === FighterType.IRON_BOXER && (
                             <group position={[0, 0.2, 0]}>
-                                <mesh><boxGeometry args={[0.35, 0.1, 0.5]} /><primitive object={mats.hair} attach="material" /></mesh>
-                                <mesh position={[0.2, -0.2, 0]}><boxGeometry args={[0.1, 0.3, 0.5]} /><primitive object={mats.accent} attach="material" /></mesh>
+                                <mesh><boxGeometry args={[0.3, 0.1, 0.45]} /><primitive object={mats.hair} attach="material" /></mesh>
+                                <mesh position={[0.2, -0.25, 0]}><boxGeometry args={[0.08, 0.25, 0.45]} /><primitive object={mats.accent} attach="material" /></mesh>
                             </group>
                         )}
                         {player.fighter === FighterType.SHADOW_NINJA && (
                             <group position={[0, 0.2, 0]}>
-                                <mesh rotation={[0.5, 0, 0]}><coneGeometry args={[0.1, 0.6, 4]} /><primitive object={mats.hair} attach="material" /></mesh>
-                                <mesh position={[0.25, -0.1, 0]}><boxGeometry args={[0.1, 0.1, 0.4]} /><primitive object={mats.accent} attach="material" /></mesh>
+                                <mesh rotation={[0.5, 0, 0]}><coneGeometry args={[0.08, 0.5, 4]} /><primitive object={mats.hair} attach="material" /></mesh>
+                                <mesh position={[0.2, -0.15, 0]}><boxGeometry args={[0.1, 0.08, 0.35]} /><primitive object={mats.accent} attach="material" /></mesh>
                             </group>
                         )}
                         {player.fighter === FighterType.STREET_BRAWLER && (
-                            <mesh position={[0, 0.3, 0]}><boxGeometry args={[0.3, 0.3, 0.1]} /><primitive object={mats.hair} attach="material" /></mesh>
+                            <mesh position={[0, 0.3, 0]}><boxGeometry args={[0.3, 0.3, 0.08]} /><primitive object={mats.hair} attach="material" /></mesh>
                         )}
                     </group>
                 </group>
 
-                <group position={[0, -0.2, 0.2]} ref={legL}>
-                    <mesh position={[0, -0.3, 0]} castShadow><capsuleGeometry args={[0.15, 0.4, 16, 16]} /><primitive object={primaryMat} attach="material" /></mesh>
+                {/* LEGS & QUAD SCULPT */}
+                <group position={[0, -0.15, 0.2]} ref={legL}>
+                    <mesh position={[0, -0.3, 0]} castShadow>
+                        <capsuleGeometry args={[0.18, 0.4, 16, 16]} />
+                        <primitive object={primaryMat} attach="material" />
+                    </mesh>
+                    {/* Quad Definition */}
+                    <mesh position={[0.1, -0.25, 0]} scale={[1.2, 1, 1]}>
+                        <sphereGeometry args={[0.15, 12, 12]} />
+                        <primitive object={primaryMat} attach="material" />
+                    </mesh>
+
                     <group position={[0, -0.6, 0]} ref={calfL}>
-                        <mesh position={[0, -0.3, 0]} castShadow><capsuleGeometry args={[0.13, 0.4, 16, 16]} /><primitive object={mats.secondary} attach="material" /></mesh>
-                        <mesh position={[0.1, -0.6, 0]} rotation={[0, 0, Math.PI / 2]} castShadow><capsuleGeometry args={[0.1, 0.25, 16, 16]} /><primitive object={mats.secondary} attach="material" /></mesh>
+                        <mesh position={[0, -0.3, 0]} castShadow>
+                            <capsuleGeometry args={[0.14, 0.4, 16, 16]} />
+                            <primitive object={mats.secondary} attach="material" />
+                        </mesh>
+                        <mesh position={[0.1, -0.65, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+                            <capsuleGeometry args={[0.1, 0.25, 16, 16]} />
+                            <primitive object={mats.secondary} attach="material" />
+                        </mesh>
                     </group>
                 </group>
 
-                <group position={[0, -0.2, -0.2]} ref={legR}>
-                    <mesh position={[0, -0.3, 0]} castShadow><capsuleGeometry args={[0.15, 0.4, 16, 16]} /><primitive object={primaryMat} attach="material" /></mesh>
+                <group position={[0, -0.15, -0.2]} ref={legR}>
+                    <mesh position={[0, -0.3, 0]} castShadow>
+                        <capsuleGeometry args={[0.18, 0.4, 16, 16]} />
+                        <primitive object={primaryMat} attach="material" />
+                    </mesh>
+                    <mesh position={[0.1, -0.25, 0]} scale={[1.2, 1, 1]}>
+                        <sphereGeometry args={[0.15, 12, 12]} />
+                        <primitive object={primaryMat} attach="material" />
+                    </mesh>
+
                     <group position={[0, -0.6, 0]} ref={calfR}>
-                        <mesh position={[0, -0.3, 0]} castShadow><capsuleGeometry args={[0.13, 0.4, 16, 16]} /><primitive object={mats.secondary} attach="material" /></mesh>
-                        <mesh position={[0.1, -0.6, 0]} rotation={[0, 0, Math.PI / 2]} castShadow><capsuleGeometry args={[0.1, 0.25, 16, 16]} /><primitive object={mats.secondary} attach="material" /></mesh>
+                        <mesh position={[0, -0.3, 0]} castShadow>
+                            <capsuleGeometry args={[0.14, 0.4, 16, 16]} />
+                            <primitive object={mats.secondary} attach="material" />
+                        </mesh>
+                        <mesh position={[0.1, -0.65, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+                            <capsuleGeometry args={[0.1, 0.25, 16, 16]} />
+                            <primitive object={mats.secondary} attach="material" />
+                        </mesh>
                     </group>
                 </group>
             </group>
