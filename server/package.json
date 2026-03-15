@@ -3,8 +3,8 @@
     "version": "1.0.0",
     "scripts": {
         "dev": "tsx watch src/index.ts",
-        "build": "tsc",
-        "start": "node dist/server/src/index.js"
+        "build": "esbuild src/index.ts --bundle --platform=node --target=node20 --outfile=dist/bundle.js --alias:@rage-arena/shared=../shared/src/index.ts",
+        "start": "node dist/bundle.js"
     },
     "dependencies": {
         "cors": "^2.8.5",
@@ -16,6 +16,7 @@
         "@types/cors": "^2.8.17",
         "@types/express": "^4.17.21",
         "@types/node": "^20.11.20",
+        "esbuild": "^0.20.1",
         "tsx": "^4.7.1",
         "typescript": "^5.3.3"
     }

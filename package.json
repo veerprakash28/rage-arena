@@ -9,8 +9,8 @@
   ],
   "scripts": {
     "dev": "concurrently \"npm run dev --workspace=server\" \"npm run dev --workspace=client\"",
-    "build": "npm run build -w shared && npm run build -w server && npm run build -w client",
-    "start": "npm run start --workspace=server"
+    "build": "npm run build --workspace=@rage-arena/server && npm run build --workspace=@rage-arena/client",
+    "start": "npm run start --workspace=@rage-arena/server"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",
