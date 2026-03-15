@@ -1,0 +1,1 @@
+{"root":["./src/index.ts","./src/game-engine/combat.ts","./src/game-engine/gameloop.ts","./src/game-engine/physics.ts","./src/rooms/roommanager.ts","./src/sockets/handlers.ts"],"version":"5.9.3"}

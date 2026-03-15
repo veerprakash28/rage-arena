@@ -63,7 +63,7 @@ export class RoomManager {
     setFighterInfo(code: string, socketId: string, fighter: FighterType, color: string) {
         const room = this.rooms.get(code);
         if (!room) return;
-        const player = room.players.find(p => p.id === socketId);
+        const player = room.players.find((p: any) => p.id === socketId);
         if (player) {
             player.fighter = fighter;
             player.color = color;
@@ -73,13 +73,13 @@ export class RoomManager {
     setReady(code: string, socketId: string, ready: boolean): boolean {
         const room = this.rooms.get(code);
         if (!room) return false;
-        const player = room.players.find(p => p.id === socketId);
+        const player = room.players.find((p: any) => p.id === socketId);
         if (player) {
             player.isReady = ready;
         }
 
         // Check if both ready
-        const bothReady = room.players.length === 2 && room.players.every(p => p.isReady && p.fighter);
+        const bothReady = room.players.length === 2 && room.players.every((p: any) => p.isReady && p.fighter);
         if (bothReady && room.status === 'waiting') {
             // room status change to be handled by caller
             return true;
@@ -97,7 +97,7 @@ export class RoomManager {
     removePlayer(socketId: string): string | null {
         // Find which room they were in
         for (const [code, room] of this.rooms.entries()) {
-            const pIndex = room.players.findIndex(p => p.id === socketId);
+            const pIndex = room.players.findIndex((p: any) => p.id === socketId);
             if (pIndex !== -1) {
                 room.players.splice(pIndex, 1);
                 // If room is empty, delete it
@@ -105,13 +105,13 @@ export class RoomManager {
                     this.rooms.delete(code);
                 } else {
                     // Unready the remaining player
-                    room.players.forEach(p => { p.isReady = false; });
+                    room.players.forEach((p: any) => { p.isReady = false; });
                     room.status = 'waiting';
                 }
                 return code;
             }
 
-            const sIndex = room.spectators.findIndex(s => s.id === socketId);
+            const sIndex = room.spectators.findIndex((s: any) => s.id === socketId);
             if (sIndex !== -1) {
                 room.spectators.splice(sIndex, 1);
                 return code;

@@ -34,5 +34,5 @@ A real-time multiplayer browser fighting game built with React, Node.js, and Soc
 Rage Arena is optimized for deployment on **Railway** (Server) and **Vercel** (Client).
 
 ### Quick Setup:
-1. **Server (Railway)**: Build command `npm install && npm run build`, Start command `npm start`.
-2. **Client (Vercel)**: Build command `npm run build`, env var `VITE_SERVER_URL` set to your Railway URL.
+1. **Server (Render)**: Root Directory `server`, Build command `npm install && npm run build`.
+2. **Client (Netlify)**: Base Directory `client`, Build command `npm run build`, Publish Directory `dist`.

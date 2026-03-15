@@ -181,9 +181,9 @@ export class GameEngine {
         if (state.roundTimer <= 0) {
             // Time over
             state.status = 'ko';
-            const players = Object.values(state.players);
-            if (players[0].hp > players[1].hp) state.winner = players[0].id;
-            else if (players[1].hp > players[0].hp) state.winner = players[1].id;
+            const playersList = Object.values(state.players) as PlayerStateNumber[];
+            if (playersList[0].hp > playersList[1].hp) state.winner = playersList[0].id;
+            else if (playersList[1].hp > playersList[0].hp) state.winner = playersList[1].id;
             else state.winner = 'tie';
             this.endGame(roomCode, state);
         }

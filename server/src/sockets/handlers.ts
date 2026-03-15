@@ -36,7 +36,7 @@ export function setupHandlers(io: Server, roomManager: RoomManager, gameEngine: 
             io.to(code).emit('room-update', room);
 
             // Check if both players are ready and start countdown
-            if (room && room.players.length === 2 && room.players.every(p => p.isReady)) {
+            if (room && room.players.length === 2 && room.players.every((p: any) => p.isReady)) {
                 if (room.status === 'waiting' || room.status === 'results') {
                     roomManager.setStatus(code, 'countdown');
                     io.to(code).emit('room-update', roomManager.getRoom(code));
@@ -57,7 +57,7 @@ export function setupHandlers(io: Server, roomManager: RoomManager, gameEngine: 
             const room = roomManager.getRoom(code);
             if (room && room.status === 'results') {
                 roomManager.setStatus(code, 'waiting');
-                room.players.forEach(p => { p.isReady = false; });
+                room.players.forEach((p: any) => { p.isReady = false; });
                 io.to(code).emit('room-update', room);
             }
         });
@@ -65,7 +65,7 @@ export function setupHandlers(io: Server, roomManager: RoomManager, gameEngine: 
         socket.on('chat-message', ({ code, text }) => {
             const room = roomManager.getRoom(code);
             if (!room) return;
-            const player = room.players.find(p => p.id === socket.id) || room.spectators.find(s => s.id === socket.id);
+            const player = room.players.find((p: any) => p.id === socket.id) || room.spectators.find((s: any) => s.id === socket.id);
             if (player) {
                 io.to(code).emit('chat-message', {
                     id: Math.random().toString(36).substring(7),
