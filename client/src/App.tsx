@@ -17,6 +17,7 @@ function App() {
             const currentScreen = useStore.getState().screen;
             if (room.status === 'waiting' && (currentScreen === 'home' || currentScreen === 'results' || currentScreen === 'fight')) {
                 // If we just joined from home, or returned from results, go to character select
+                setGameState(null); // clear stale game state so KO overlay doesn't show
                 setScreen('select');
             }
             else if (room.status === 'countdown' || room.status === 'playing') {

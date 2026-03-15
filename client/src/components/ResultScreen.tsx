@@ -2,9 +2,11 @@ import { useStore } from '../store';
 import { socket } from '../socket';
 
 export const ResultScreen = () => {
-    const { gameState, playerName, roomCode } = useStore();
+    const { gameState, playerName, roomCode, screen } = useStore();
 
-    if (!gameState || gameState.status !== 'ko' && gameState.status !== 'results') return null;
+    // Don't show if we've navigated away from the results screen, or if no game state
+    if (screen !== 'results') return null;
+    if (!gameState || (gameState.status !== 'ko' && gameState.status !== 'results')) return null;
 
     const handleLobby = () => {
         // Emit formal event to reset room status

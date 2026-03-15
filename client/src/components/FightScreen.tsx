@@ -2,6 +2,7 @@ import { HUD } from './HUD';
 import { GameCanvas } from '../game/GameCanvas';
 import { MobileControls } from './MobileControls';
 import { Chat } from './Chat';
+import { ControlsOverlay } from './ControlsOverlay';
 
 export const FightScreen = () => {
     return (
@@ -12,6 +13,7 @@ export const FightScreen = () => {
             </div>
 
             <HUD />
+            <ControlsOverlay />
             <Chat />
             <MobileControls />
         </div>

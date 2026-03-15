@@ -104,14 +104,14 @@ export const GameCanvas = () => {
     }, [roomCode]);
 
     return (
-        <div className="w-full h-full flex items-center justify-center bg-gray-900 border-4 border-gray-800 shadow-[0_0_50px_rgba(0,0,0,0.8)]">
+        <div className="w-full h-full flex items-center justify-center bg-black">
             {/* We use aspect-video to maintain proportion (16:9 approx). The internal canvas size is fixed, CSS scales it. */}
             <canvas
                 ref={canvasRef}
                 width={GAME_CONSTANTS.STAGE_WIDTH}
                 height={GAME_CONSTANTS.STAGE_HEIGHT}
-                className="w-full h-full max-h-screen object-contain"
-                style={{ imageRendering: 'pixelated' }}
+                className="w-full h-full object-contain"
+                
             />
         </div>
     );

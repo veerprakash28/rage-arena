@@ -1,14 +1,23 @@
 import { GAME_CONSTANTS } from '@rage-arena/shared';
 
-// Handles rendering the multi-layer parallax background
 export class Arena {
     private width: number;
     private height: number;
     private time: number = 0;
+    private stars: { x: number; y: number; r: number; b: number }[] = [];
 
     constructor(width: number, height: number) {
         this.width = width;
         this.height = height;
+        // Pre-generate stars
+        for (let i = 0; i < 60; i++) {
+            this.stars.push({
+                x: Math.random() * width,
+                y: Math.random() * (height * 0.5),
+                r: Math.random() * 1.5 + 0.3,
+                b: Math.random(),
+            });
+        }
     }
 
     update(dt: number) {
@@ -16,72 +25,129 @@ export class Arena {
     }
 
     draw(ctx: CanvasRenderingContext2D, cameraX: number = 0) {
-        // 1. Sky / Distant background
-        ctx.fillStyle = '#0a0a1a';
+        // Sky gradient
+        const sky = ctx.createLinearGradient(0, 0, 0, this.height);
+        sky.addColorStop(0, '#050510');
+        sky.addColorStop(0.6, '#0a0a25');
+        sky.addColorStop(1, '#111135');
+        ctx.fillStyle = sky;
         ctx.fillRect(0, 0, this.width, this.height);
 
-        // Grid for cyberpunk feel (parallax 0.1)
-        ctx.strokeStyle = '#1a1a3a';
-        ctx.lineWidth = 1;
-        const p1 = cameraX * 0.1;
-        for (let i = 0; i < this.width + 100; i += 50) {
+        // Stars
+        for (const s of this.stars) {
+            const twinkle = 0.5 + 0.5 * Math.sin(this.time * 0.002 * s.b + s.x);
+            ctx.globalAlpha = twinkle * 0.8;
+            ctx.fillStyle = '#fff';
             ctx.beginPath();
-            const x = (i - (p1 % 50));
-            ctx.moveTo(x, 0);
-            ctx.lineTo(x, this.height);
+            ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+
+        // Parallax city silhouette (very far, large buildings)
+        const p2 = (cameraX * 0.15) % this.width;
+        this.drawBuildings(ctx, p2, this.height - 80, 100, 180, 60, 100, '#0c0c28');
+        this.drawBuildings(ctx, p2 + this.width, this.height - 80, 100, 180, 60, 100, '#0c0c28');
+
+        // Neon city layer (mid distance)
+        const p4 = (cameraX * 0.3) % this.width;
+        this.drawBuildings(ctx, p4, this.height - 55, 60, 110, 35, 70, '#080820', true);
+        this.drawBuildings(ctx, p4 + this.width, this.height - 55, 60, 110, 35, 70, '#080820', true);
+
+        // Floor
+        const floorGrad = ctx.createLinearGradient(0, GAME_CONSTANTS.GROUND_Y, 0, this.height);
+        floorGrad.addColorStop(0, '#1e1e40');
+        floorGrad.addColorStop(1, '#05050f');
+        ctx.fillStyle = floorGrad;
+        ctx.fillRect(0, GAME_CONSTANTS.GROUND_Y, this.width, this.height - GAME_CONSTANTS.GROUND_Y);
+
+        // Floor reflection lines (perspective grid)
+        ctx.strokeStyle = 'rgba(100,50,200,0.15)';
+        ctx.lineWidth = 1;
+        const vanishX = this.width / 2;
+        const vanishY = GAME_CONSTANTS.GROUND_Y;
+        for (let i = 0; i <= 12; i++) {
+            const px = (i / 12) * this.width;
+            ctx.beginPath();
+            ctx.moveTo(px, this.height);
+            ctx.lineTo(vanishX + (px - vanishX) * 0.1, vanishY);
+            ctx.stroke();
+        }
+        for (let row = 0; row < 5; row++) {
+            const t = row / 4;
+            const ry = vanishY + Math.pow(t, 2) * (this.height - vanishY);
+            ctx.beginPath();
+            ctx.moveTo(0, ry);
+            ctx.lineTo(this.width, ry);
             ctx.stroke();
         }
 
-        // 2. City Horizon (parallax 0.3)
-        const p3 = cameraX * 0.3;
-        ctx.fillStyle = '#0f172a';
-        for (let i = 0; i < 20; i++) {
-            const x = ((i * 120) - p3) % (this.width + 200) - 100;
-            const h = 150 + Math.sin(i * 45) * 100;
-            ctx.fillRect(x, this.height - h - 50, 80, h);
-
-            // Neon windows
-            ctx.fillStyle = (i % 3 === 0) ? '#ff2a2a' : '#00f0ff';
-            if (i % 2 === 0) {
-                ctx.fillRect(x + 20, this.height - h - 30, 10, 20);
-                ctx.fillRect(x + 50, this.height - h - 10, 10, 20);
-            }
-            ctx.fillStyle = '#0f172a';
-        }
-
-        // 3. Middle ground details / Crowd (parallax 0.6)
-        const p6 = cameraX * 0.6;
-        ctx.fillStyle = '#1e293b';
-        for (let i = 0; i < 15; i++) {
-            const x = ((i * 70) - p6) % (this.width + 100) - 50;
-            const bounce = Math.sin(this.time * 0.005 + i) * 5;
-            // Draw head
-            ctx.beginPath();
-            ctx.arc(x, GAME_CONSTANTS.GROUND_Y - 30 + bounce, 12, 0, Math.PI * 2);
-            ctx.fill();
-            // Body
-            ctx.fillRect(x - 15, GAME_CONSTANTS.GROUND_Y - 20 + bounce, 30, 40);
-        }
-
-        // 4. Ground floor
-        const grad = ctx.createLinearGradient(0, GAME_CONSTANTS.GROUND_Y, 0, this.height);
-        grad.addColorStop(0, '#334155');
-        grad.addColorStop(1, '#0f172a');
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, GAME_CONSTANTS.GROUND_Y, this.width, this.height - GAME_CONSTANTS.GROUND_Y);
-
-        // Ground edge line
-        ctx.strokeStyle = '#ff2a2a';
-        ctx.lineWidth = 3;
+        // Ground neon edge line
         ctx.beginPath();
         ctx.moveTo(0, GAME_CONSTANTS.GROUND_Y);
         ctx.lineTo(this.width, GAME_CONSTANTS.GROUND_Y);
-        ctx.stroke();
-
-        // Add glow
-        ctx.shadowColor = '#ff2a2a';
-        ctx.shadowBlur = 10;
+        ctx.strokeStyle = '#9933ff';
+        ctx.lineWidth = 2;
+        ctx.shadowColor = '#9933ff';
+        ctx.shadowBlur = 12;
         ctx.stroke();
         ctx.shadowBlur = 0;
+
+        // Side stage edge lines
+        ctx.strokeStyle = 'rgba(153,51,255,0.3)';
+        ctx.lineWidth = 1;
+        ctx.shadowBlur = 0;
+
+        // Animated crowd dots at base
+        const crowdCount = 30;
+        for (let i = 0; i < crowdCount; i++) {
+            const cx = (i / crowdCount) * this.width;
+            const bobY = GAME_CONSTANTS.GROUND_Y - 18 + Math.sin(this.time * 0.004 + i * 1.5) * 4;
+            ctx.fillStyle = i % 3 === 0 ? 'rgba(255,50,50,0.4)' : i % 3 === 1 ? 'rgba(50,150,255,0.4)' : 'rgba(200,200,200,0.3)';
+            ctx.beginPath();
+            ctx.arc(cx, bobY, 5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    private drawBuildings(
+        ctx: CanvasRenderingContext2D,
+        offsetX: number,
+        groundY: number,
+        minH: number,
+        maxH: number,
+        minW: number,
+        maxW: number,
+        color: string,
+        addNeon: boolean = false
+    ) {
+        let x = -offsetX;
+        const seed = [73, 31, 97, 53, 11, 67, 23, 89, 41, 17, 59];
+        for (let i = 0; x < this.width + maxW; i++) {
+            const s = seed[i % seed.length];
+            const h = minH + (s % (maxH - minH));
+            const w = minW + ((s * 3) % (maxW - minW));
+            const bx = x;
+            const by = groundY - h;
+
+            ctx.fillStyle = color;
+            ctx.fillRect(bx, by, w, h);
+
+            if (addNeon && i % 3 === 0) {
+                // Window glow
+                const neonColor = i % 6 === 0 ? '#ff2060' : '#00cfff';
+                ctx.fillStyle = neonColor;
+                ctx.shadowColor = neonColor;
+                ctx.shadowBlur = 6;
+                const rows = Math.floor(h / 14);
+                for (let rr = 0; rr < rows; rr++) {
+                    if ((rr + i) % 3 !== 0) continue;
+                    ctx.fillRect(bx + 6, by + rr * 14 + 4, w - 12, 5);
+                }
+                ctx.shadowBlur = 0;
+            }
+
+            x += w + 4 + (s % 10);
+        }
     }
 }
