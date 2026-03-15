@@ -20,7 +20,7 @@ export const Chat = () => {
             if (!isOpen) {
                 setLatestMsg(msg);
                 setTimeout(() => {
-                    setLatestMsg(current => current?.id === msg.id ? null : current);
+                    setLatestMsg((current: ChatMessage | null) => current?.id === msg.id ? null : current);
                 }, 4000);
             }
         });

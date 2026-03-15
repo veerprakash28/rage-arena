@@ -17,8 +17,8 @@ export const CharacterSelect = () => {
     const [copied, setCopied] = useState(false);
     const [isReady, setIsReady] = useState(false);
 
-    const me = room?.players.find(p => p.name === playerName);
-    const opponent = room?.players.find(p => p.name !== playerName);
+    const me = room?.players.find((p: any) => p.name === playerName);
+    const opponent = room?.players.find((p: any) => p.name !== playerName);
 
     useEffect(() => {
         if (selectedFighter && me?.color) {
@@ -47,7 +47,7 @@ export const CharacterSelect = () => {
         </div>
     );
 
-    const getFighterDetails = (id?: FighterType) => FIGHTERS.find(f => f.id === id);
+    const getFighterDetails = (id?: FighterType) => FIGHTERS.find((f: any) => f.id === id);
 
     return (
         <div className="w-full h-full flex flex-col bg-[#0a0a0f] text-white p-6 md:p-12 relative overflow-hidden font-sans">

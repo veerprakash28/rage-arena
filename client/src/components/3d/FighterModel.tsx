@@ -5,7 +5,6 @@ import * as THREE from 'three';
 
 interface FighterModelProps {
     player: PlayerStateNumber;
-    isOpponent: boolean;
 }
 
 // Convert 2D canvas coords to 3D world coords
