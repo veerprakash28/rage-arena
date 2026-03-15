@@ -1,27 +1,29 @@
 # Rage Arena 🥊
 
-A real-time multiplayer browser fighting game built with React, Node.js, and Socket.IO.
+A real-time 3D multiplayer browser fighting game built with React Three Fiber, Node.js, and Socket.IO.
+
+**Live Game:** [https://rage-arena.netlify.app/](https://rage-arena.netlify.app/)
 
 ## Game Features
-- Real-time 60fps multiplayer combat
-- Unique fighter archetypes (Shadow Ninja, Iron Boxer, Street Brawler)
-- Retro arcade aesthetic with a custom HTML5 canvas renderer
-- Global state management & room-code based matchmaking
-- Cross-platform play with desktop keyboard and mobile touch controls
+- **3D Multiplayer Combat**: Real-time 60fps battles powered by Socket.IO.
+- **Cyberpunk Aesthetic**: Neon-drenched arena with bloom, screen shake, and hit-stop effects.
+- **Unique Fighters**: Dynamic character archetypes with distinct weight and movesets.
+- **Advanced Physics**: Knock-up effects, procedural animations, and collision detection.
+- **Room-Based Matchmaking**: Join friends with unique room codes.
 
 ## Tech Stack
-- **Frontend**: React, Vite, TailwindCSS v4, Zustand, HTML5 Canvas API
-- **Backend**: Node.js, Express, Socket.IO
-- **Language**: TypeScript (Monorepo with NPM Workspaces)
+- **Frontend**: React, Vite, React Three Fiber (Three.js), TailwindCSS v4, Zustand.
+- **Backend**: Node.js, Express, Socket.IO, esbuild (Single-Bundle).
+- **Language**: TypeScript (Monorepo).
 
 ## Local Development
 
-1. Install all dependencies recursively:
+1. Install all dependencies:
    ```bash
    npm install
    ```
 
-2. Start both the client and server concurrently:
+2. Start the development environment:
    ```bash
    npm run dev
    ```
@@ -31,8 +33,15 @@ A real-time multiplayer browser fighting game built with React, Node.js, and Soc
 
 ## Deployment 🚀
 
-Rage Arena is optimized for deployment on **Railway** (Server) and **Vercel** (Client).
+Rage Arena is deployed on **Render** (Backend) and **Netlify** (Frontend).
 
-### Quick Setup:
-1. **Server (Render)**: Root Directory `.`, Build command `npm install && npm run build`, Start command `npm run start --workspace=server`.
-2. **Client (Netlify)**: Base Directory `client`, Build command `npm run build`, Publish Directory `dist`.
+### Production Build
+The project uses an infallible bundling strategy for production:
+```bash
+npm run build
+```
+This bundles the server and its dependencies into a single file and compiles the 3D frontend.
+
+### Final Configuration:
+- **Server (Render)**: Start command `npm run start --workspace=server`.
+- **Client (Netlify)**: Configured via `netlify.toml` with publish directory `client/dist`.
