@@ -58,7 +58,8 @@ export const ResultScreen = () => {
                         )}
                     </div>
 
-                    <h1 className="text-[6rem] md:text-[8rem] font-black italic tracking-tighter uppercase leading-none drop-shadow-2xl mb-4">
+                    {/* Add pb-6 (padding-bottom) to prevent clipping the italic descenders like Y */}
+                    <h1 className="text-[6rem] md:text-[8rem] font-black italic tracking-tighter uppercase leading-none drop-shadow-2xl mb-4 pb-6">
                         {isTie ? (
                             <span className="text-gray-400">DRAW GAME</span>
                         ) : isWinner ? (

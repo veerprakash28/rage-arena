@@ -1,11 +1,10 @@
 import { FighterType, PlayerStateNumber, GAME_CONSTANTS } from '@rage-arena/shared';
 
-// Scale from world coords to canvas. Canvas is fixed 800x450.
 const GND = GAME_CONSTANTS.GROUND_Y;
 
 export class FighterSprite {
     static draw(ctx: CanvasRenderingContext2D, player: PlayerStateNumber, time: number) {
-        const { x, y, fighter, color, facing, animation } = player;
+        const { x, y, fighter, color, facing, animation, hp } = player;
 
         ctx.save();
         ctx.translate(x, y);
@@ -14,73 +13,70 @@ export class FighterSprite {
         const t = time * 0.001; // seconds
         const isGround = y >= GND - 2;
 
-        // Shadow beneath player
-        if (isGround) {
+        // --- Core Proportions ---
+        const props = this.getProps(fighter);
+        const { bw, bh, hr, legLen, armLen } = props;
+
+        // Dynamic breathing
+        let breathY = 0;
+        if (animation === 'idle') breathY = Math.sin(t * 3) * 2;
+        if (animation === 'walk') breathY = Math.abs(Math.sin(t * 12)) * -4;
+
+        const bodyY = -bh + breathY;
+        const headY = bodyY - hr * 1.5 + breathY;
+
+        // --- Animation States ---
+        let walkCycle = 0;
+        let punchT = 0;
+        let kickT = 0;
+        let smashT = 0;
+        let isBlocking = false;
+        let inHit = false;
+        let inKO = false;
+
+        if (animation === 'walk') walkCycle = Math.sin(t * 12);
+        if (animation === 'punch') punchT = 1;
+        if (animation === 'kick') kickT = 1;
+        if (animation === 'smash') smashT = 1;
+        if (animation === 'block') isBlocking = true;
+        if (animation === 'hit') inHit = true;
+        if (animation === 'ko') inKO = true;
+        if (animation === 'special') { punchT = 1; smashT = 0.5; }
+
+        // --- Master Transforms ---
+        if (inKO) {
+            ctx.rotate(Math.PI / 2);
+            ctx.translate(-20, -bh / 2);
+        } else if (inHit) {
+            ctx.rotate(-0.3);
+            ctx.translate(-10, 0);
+        }
+
+        // --- Draw Shadow ---
+        if (isGround && !inKO) {
             const shadowScale = 1 - Math.max(0, (GND - y) / 200);
             ctx.save();
-            ctx.globalAlpha = 0.35 * shadowScale;
-            ctx.fillStyle = '#000';
+            ctx.fillStyle = 'rgba(0,0,0,0.4)';
+            ctx.shadowColor = 'rgba(0,0,0,0.8)';
+            ctx.shadowBlur = 10;
             ctx.beginPath();
-            ctx.ellipse(0, 2, 28 * shadowScale, 7 * shadowScale, 0, 0, Math.PI * 2);
+            ctx.ellipse(0, 0, bw * 1.5 * shadowScale, 8 * shadowScale, 0, 0, Math.PI * 2);
             ctx.fill();
             ctx.restore();
         }
 
-        // Each fighter has unique proportions
-        const props = this.getProps(fighter);
-        const { bw, bh, hr, armLen, legLen, legW, armW } = props;
+        // === DRAW PASSES ===
+        // Back Arm -> Back Leg -> Body -> Head -> Front Leg -> Front Arm
+        this.drawArm(ctx, bw, bodyY, armLen, true, walkCycle, punchT, smashT, isBlocking, color, fighter, t);
+        this.drawLeg(ctx, bw, bh, bodyY, legLen, true, walkCycle, kickT, inKO, color, t);
+        this.drawBody(ctx, bw, bh, bodyY, color, fighter, isBlocking);
+        this.drawHead(ctx, hr, headY, color, fighter, hp, t);
+        this.drawLeg(ctx, bw, bh, bodyY, legLen, false, walkCycle, kickT, inKO, color, t);
+        this.drawArm(ctx, bw, bodyY, armLen, false, walkCycle, punchT, smashT, isBlocking, color, fighter, t);
 
-        let breathY = 0;
-        if (animation === 'idle') breathY = Math.sin(t * 2) * 2;
-        if (animation === 'walk') breathY = Math.abs(Math.sin(t * 8)) * -3;
-
-        const bodyY = -bh + breathY;
-        const headY = bodyY - hr * 2 - 2 + breathY;
-
-        // --- FIGURE OUT POSE ---
-        let poseWalkCycle = 0;
-        let punchExtend = 0;
-        let kickExtend = 0;
-        let blockUp = false;
-        let smashUp = 0;
-        let inHit = false;
-        let inKO = false;
-
-        if (animation === 'walk') poseWalkCycle = Math.sin(t * 10);
-        if (animation === 'punch') punchExtend = 1;
-        if (animation === 'kick') kickExtend = 1;
-        if (animation === 'smash') smashUp = 1;
-        if (animation === 'block') blockUp = true;
-        if (animation === 'hit') inHit = true;
-        if (animation === 'ko') inKO = true;
-        if (animation === 'special') { punchExtend = 1; smashUp = 0.5; }
-
-        if (inKO) {
-            ctx.rotate(Math.PI / 2);
-            ctx.translate(-30, -bh / 2);
-        } else if (inHit) {
-            ctx.rotate(-0.25);
-            ctx.translate(-8, 0);
-        }
-
-        // === BODY ===
-        this.drawBody(ctx, bw, bh, bodyY, color, animation, fighter);
-
-        // === LEGS ===
-        this.drawLegs(ctx, bw, bh, bodyY, legLen, legW, poseWalkCycle, kickExtend, inKO, color, fighter);
-
-        // === BACK ARM ===
-        this.drawArm(ctx, bw, bh, bodyY, armLen, armW, punchExtend, smashUp, blockUp, poseWalkCycle, true, color, fighter, t);
-
-        // === HEAD ===
-        this.drawHead(ctx, hr, headY, color, fighter, blockUp, t, player.hp);
-
-        // === FRONT ARM ===
-        this.drawArm(ctx, bw, bh, bodyY, armLen, armW, punchExtend, smashUp, blockUp, poseWalkCycle, false, color, fighter, t);
-
-        // === SPECIAL EFFECT ===
+        // Special VFX overlay
         if (animation === 'special') {
-            this.drawSpecialEffect(ctx, bw, bodyY, facing, t);
+            this.drawEnergyAura(ctx, bodyY, bh, color, t);
         }
 
         ctx.restore();
@@ -88,277 +84,308 @@ export class FighterSprite {
 
     private static getProps(fighter: FighterType) {
         if (fighter === FighterType.IRON_BOXER) {
-            return { bw: 28, bh: 65, hr: 16, armLen: 32, legLen: 36, legW: 10, armW: 11 };
+            return { bw: 32, bh: 70, hr: 18, armLen: 38, legLen: 40 };
         } else if (fighter === FighterType.SHADOW_NINJA) {
-            return { bw: 18, bh: 72, hr: 13, armLen: 38, legLen: 42, legW: 7, armW: 7 };
-        } else { // Street Brawler
-            return { bw: 22, bh: 68, hr: 15, armLen: 35, legLen: 38, legW: 9, armW: 9 };
+            return { bw: 20, bh: 76, hr: 14, armLen: 44, legLen: 46 };
+        } else {
+            return { bw: 26, bh: 72, hr: 16, armLen: 40, legLen: 42 }; // Street Brawler
         }
     }
 
-    private static drawBody(ctx: CanvasRenderingContext2D, bw: number, bh: number, bodyY: number, color: string, anim: string, fighter: FighterType) {
-        // Main torso with gradient
-        const grad = ctx.createLinearGradient(-bw, bodyY, bw, bodyY + bh);
-        grad.addColorStop(0, lighten(color, 40));
-        grad.addColorStop(1, darken(color, 30));
+    private static drawBody(ctx: CanvasRenderingContext2D, bw: number, bh: number, bodyY: number, color: string, fighter: FighterType, blocking: boolean) {
+        const lean = blocking ? -0.2 : 0.1;
+        ctx.save();
+        ctx.translate(0, bodyY + bh);
+        ctx.rotate(lean);
+        ctx.translate(0, -bh);
+
+        // Advanced Torso Gradient
+        const grad = ctx.createLinearGradient(-bw, 0, bw, bh);
+        grad.addColorStop(0, lighten(color, 50));
+        grad.addColorStop(0.5, color);
+        grad.addColorStop(1, darken(color, 50));
         ctx.fillStyle = grad;
 
-        // Slightly rounded body
+        // Shoulders to waist taper
         ctx.beginPath();
-        const topW = bw * (anim === 'block' ? 0.8 : 1);
-        ctx.moveTo(-topW, bodyY);
-        ctx.lineTo(topW, bodyY);
-        ctx.lineTo(bw * 0.9, bodyY + bh);
-        ctx.lineTo(-bw * 0.9, bodyY + bh);
+        const topW = bw * (blocking ? 0.8 : 1);
+        ctx.moveTo(-topW, 0);
+        ctx.lineTo(topW, 0);
+        ctx.lineTo(bw * 0.8, bh);
+        ctx.lineTo(-bw * 0.8, bh);
         ctx.closePath();
         ctx.fill();
 
-        // Belt / detail
-        ctx.fillStyle = 'rgba(0,0,0,0.4)';
-        ctx.fillRect(-bw * 0.9, bodyY + bh * 0.55, bw * 1.8, bh * 0.12);
-
-        // Fighter-specific chest detail
-        if (fighter === FighterType.IRON_BOXER) {
-            // Chest armor plates
-            ctx.fillStyle = 'rgba(255,255,255,0.15)';
-            ctx.beginPath();
-            ctx.ellipse(0, bodyY + bh * 0.25, bw * 0.5, bh * 0.2, 0, 0, Math.PI * 2);
-            ctx.fill();
-        } else if (fighter === FighterType.SHADOW_NINJA) {
-            // Sash
-            ctx.fillStyle = '#cc2222';
-            ctx.fillRect(-2, bodyY + bh * 0.45, 4, bh * 0.4);
-            ctx.fillRect(-bw * 0.4, bodyY + bh * 0.55, bw * 0.8, 3);
-        }
-    }
-
-    private static drawHead(ctx: CanvasRenderingContext2D, hr: number, headY: number, color: string, fighter: FighterType, blocking: boolean, t: number, hp: number) {
-        // Neck
-        ctx.fillStyle = darken(color, 10);
-        ctx.fillRect(-5, headY + hr, 10, 10);
-
-        // Head shape
-        const grad = ctx.createRadialGradient(-hr * 0.3, headY - hr * 0.2, 2, 0, headY, hr * 1.4);
-        grad.addColorStop(0, lighten(color, 50));
-        grad.addColorStop(1, darken(color, 20));
-        ctx.fillStyle = grad;
+        // High gloss highlight
+        ctx.fillStyle = 'rgba(255,255,255,0.15)';
         ctx.beginPath();
-
-        if (fighter === FighterType.IRON_BOXER) {
-            // Squared helmet
-            ctx.roundRect(-hr, headY - hr, hr * 2, hr * 2, 4);
-        } else if (fighter === FighterType.SHADOW_NINJA) {
-            // Pointed head wrap
-            ctx.moveTo(0, headY - hr * 1.3);
-            ctx.lineTo(hr, headY + hr);
-            ctx.lineTo(-hr, headY + hr);
-            ctx.closePath();
-        } else {
-            ctx.arc(0, headY, hr, 0, Math.PI * 2);
-        }
+        ctx.moveTo(0, 0);
+        ctx.lineTo(topW * 0.8, 0);
+        ctx.lineTo(bw * 0.6, bh);
+        ctx.lineTo(0, bh);
         ctx.fill();
 
-        // Eyes / visor
+        // Fighter Specifics
         if (fighter === FighterType.IRON_BOXER) {
-            // Single visor slit
-            ctx.fillStyle = '#00f0ff';
-            ctx.shadowColor = '#00f0ff';
-            ctx.shadowBlur = 8;
-            ctx.fillRect(-hr * 0.7, headY - 3, hr * 1.4, 5);
+            ctx.fillStyle = '#111';
+            ctx.fillRect(-bw * 0.8, bh * 0.4, bw * 1.6, bh * 0.2); // Mid chassis gap
+            // Arc reactor center
+            ctx.fillStyle = '#00ffff';
+            ctx.shadowColor = '#00ffff';
+            ctx.shadowBlur = 15;
+            ctx.beginPath();
+            ctx.arc(0, bh * 0.3, bw * 0.3, 0, Math.PI * 2);
+            ctx.fill();
             ctx.shadowBlur = 0;
         } else if (fighter === FighterType.SHADOW_NINJA) {
-            // Two glowing eyes
-            ctx.fillStyle = '#ff4400';
-            ctx.shadowColor = '#ff4400';
-            ctx.shadowBlur = 6;
-            ctx.beginPath(); ctx.arc(-4, headY - hr * 0.2, 3, 0, Math.PI * 2); ctx.fill();
-            ctx.beginPath(); ctx.arc(4, headY - hr * 0.2, 3, 0, Math.PI * 2); ctx.fill();
-            ctx.shadowBlur = 0;
+            ctx.strokeStyle = '#cc0000';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(-topW, 0);
+            ctx.lineTo(bw * 0.8, bh * 0.8);
+            ctx.stroke(); // Ninja Sash
         } else {
-            // Normal shades
-            ctx.fillStyle = 'rgba(0,0,0,0.7)';
-            ctx.fillRect(-hr * 0.7, headY - 4, hr * 1.4, 6);
-            // Glint
-            ctx.fillStyle = 'rgba(255,255,255,0.3)';
-            ctx.fillRect(-hr * 0.7, headY - 4, hr * 1.4, 2);
+            // Street Brawler Jacket Open
+            ctx.fillStyle = '#222';
+            ctx.fillRect(-5, 0, 10, bh * 0.9);
         }
 
-        // Low HP flash red
-        if (hp < 30) {
-            ctx.globalAlpha = 0.2 + Math.abs(Math.sin(t * 8)) * 0.3;
-            ctx.fillStyle = '#ff0000';
-            ctx.beginPath();
-            ctx.arc(0, headY, hr, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.globalAlpha = 1;
-        }
+        ctx.restore();
     }
 
-    private static drawArm(
-        ctx: CanvasRenderingContext2D,
-        bw: number, bh: number, bodyY: number,
-        armLen: number, armW: number,
-        punchExtend: number, smashUp: number, blockUp: boolean,
-        walkCycle: number, isBack: boolean,
-        color: string, fighter: FighterType, t: number
-    ) {
+    private static drawHead(ctx: CanvasRenderingContext2D, hr: number, headY: number, color: string, fighter: FighterType, hp: number, t: number) {
         ctx.save();
-        const shoulderX = isBack ? -bw * 0.8 : bw * 0.8;
-        const shoulderY = bodyY + bh * 0.15;
+        ctx.translate(0, headY);
+
+        // Dark neck
+        ctx.fillStyle = darken(color, 60);
+        ctx.fillRect(-hr * 0.3, hr * 0.5, hr * 0.6, hr);
+
+        // Head Base
+        const hGrad = ctx.createRadialGradient(-hr * 0.3, -hr * 0.3, hr * 0.2, 0, 0, hr);
+        hGrad.addColorStop(0, lighten(color, 40));
+        hGrad.addColorStop(1, darken(color, 30));
+        ctx.fillStyle = hGrad;
+
+        if (fighter === FighterType.IRON_BOXER) {
+            // Mecha Box Head
+            ctx.roundRect(-hr, -hr, hr * 2.2, hr * 2.2, 5);
+            ctx.fill();
+            // Glowing visor
+            ctx.fillStyle = '#00ffff';
+            ctx.shadowColor = '#00ffff';
+            ctx.shadowBlur = 10;
+            ctx.fillRect(-hr * 0.8, -hr * 0.2, hr * 1.8, hr * 0.4);
+            ctx.shadowBlur = 0;
+        } else if (fighter === FighterType.SHADOW_NINJA) {
+            // Pointed ninja hood
+            ctx.beginPath();
+            ctx.moveTo(0, -hr * 1.5);
+            ctx.lineTo(hr * 1.2, hr);
+            ctx.lineTo(-hr * 1.2, hr);
+            ctx.fill();
+            // Demonic eyes
+            ctx.fillStyle = '#ff003c';
+            ctx.shadowColor = '#ff003c';
+            ctx.shadowBlur = 15;
+            ctx.beginPath(); ctx.arc(-hr * 0.2, -hr * 0.2, 3, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(hr * 0.4, -hr * 0.2, 3, 0, Math.PI * 2); ctx.fill();
+            ctx.shadowBlur = 0;
+        } else {
+            // Smooth domed head
+            ctx.beginPath();
+            ctx.arc(0, 0, hr, 0, Math.PI * 2);
+            ctx.fill();
+            // Tech-Glasses
+            ctx.fillStyle = '#111';
+            ctx.fillRect(-hr * 0.8, -hr * 0.3, hr * 1.6, hr * 0.5);
+            ctx.fillStyle = 'rgba(255,255,255,0.8)'; // Lens glare
+            ctx.fillRect(hr * 0.2, -hr * 0.3, 2, hr * 0.5);
+        }
+
+        // Critical HP flashing overlay
+        if (hp < 30) {
+            const dangerAlpha = 0.2 + 0.4 * Math.abs(Math.sin(t * 15));
+            ctx.globalAlpha = dangerAlpha;
+            ctx.fillStyle = '#ff0000';
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.beginPath(); ctx.arc(0, 0, hr * 1.1, 0, Math.PI * 2); ctx.fill();
+        }
+
+        ctx.restore();
+    }
+
+    private static drawArm(ctx: CanvasRenderingContext2D, bw: number, bodyY: number, armLen: number, isBack: boolean, walkCycle: number, punchT: number, smashT: number, blocking: boolean, color: string, fighter: FighterType, t: number) {
+        ctx.save();
+        const shoulderX = isBack ? -bw * 0.6 : bw * 0.6;
+        const shoulderY = bodyY + 10;
         ctx.translate(shoulderX, shoulderY);
 
-        let angle = isBack ? 0.6 : 0.9;
-        let len = armLen;
-        let handSize = armW * 1.2;
+        // Core IK Angles
+        let upperAngle = isBack ? 0.3 : 0.8;
+        let lowerAngle = isBack ? 1.0 : 0.5;
 
-        if (blockUp) {
-            angle = isBack ? -0.6 : -1.0;
-            ctx.translate(isBack ? 0 : 8, -12);
-        } else if (smashUp > 0 && !isBack) {
-            angle = -2.0 - smashUp * 0.5;
-            len = armLen * 1.3;
-        } else if (punchExtend > 0 && !isBack) {
-            angle = 0; // straight punch forward
-            len = armLen * 1.4;
-        } else if (walkCycle !== 0) {
-            angle += (isBack ? -walkCycle : walkCycle) * 0.5;
+        if (blocking) {
+            upperAngle = isBack ? -0.5 : -1.2;
+            lowerAngle = isBack ? -1.0 : -2.0;
+        } else if (smashT > 0 && !isBack) {
+            upperAngle = -2.5;
+            lowerAngle = -0.5;
+            ctx.shadowColor = color;
+            ctx.shadowBlur = 20;
+        } else if (punchT > 0 && !isBack) {
+            upperAngle = -0.2;
+            lowerAngle = 0.1; // Straight punch
+            ctx.shadowColor = '#fff';
+            ctx.shadowBlur = 10;
         } else {
-            angle += Math.sin(t * 2 + (isBack ? Math.PI : 0)) * 0.05;
+            // Walk swing
+            upperAngle += (isBack ? -walkCycle : walkCycle) * 0.6;
+            // Idle breathing swing
+            upperAngle += Math.sin(t * 2 + (isBack ? Math.PI : 0)) * 0.05;
         }
 
-        ctx.rotate(angle);
+        const armW = 12;
+        const l1 = armLen * 0.5;
+        const l2 = armLen * 0.5;
 
-        // Upper arm
-        const armGrad = ctx.createLinearGradient(0, 0, 0, len);
-        armGrad.addColorStop(0, lighten(color, 20));
-        armGrad.addColorStop(1, darken(color, 20));
-        ctx.fillStyle = armGrad;
-        ctx.beginPath();
-        ctx.roundRect(-armW / 2, 0, armW, len * 0.55, 3);
-        ctx.fill();
+        // Upper Arm
+        ctx.rotate(upperAngle);
+        ctx.fillStyle = darken(color, isBack ? 40 : 10);
+        ctx.beginPath(); ctx.roundRect(-armW / 2, 0, armW, l1 + armW / 2, armW / 2); ctx.fill();
 
-        ctx.translate(0, len * 0.55);
+        // Elbow Joint
+        ctx.translate(0, l1);
+        ctx.fillStyle = '#222';
+        ctx.beginPath(); ctx.arc(0, 0, armW * 0.6, 0, Math.PI * 2); ctx.fill();
 
-        // Forearm (elbow bend)
-        let elbowAngle = isBack ? 0.3 : -0.2;
-        if (punchExtend > 0 && !isBack) elbowAngle = 0;
-        if (blockUp) elbowAngle = isBack ? -0.5 : 0.5;
-        ctx.rotate(elbowAngle);
+        // Lower Arm
+        ctx.rotate(lowerAngle);
+        ctx.fillStyle = darken(color, isBack ? 50 : 20);
+        ctx.beginPath(); ctx.roundRect(-armW / 2, 0, armW, l2, armW / 2); ctx.fill();
 
-        ctx.fillStyle = darken(color, 10);
-        ctx.beginPath();
-        ctx.roundRect(-armW / 2, 0, armW, len * 0.45, 3);
-        ctx.fill();
+        // Fist / Weapon
+        ctx.translate(0, l2);
 
-        ctx.translate(0, len * 0.45);
-
-        // Fist / Glove
-        if (fighter === FighterType.IRON_BOXER) {
-            // Boxing glove
-            ctx.fillStyle = '#cc2222';
-            ctx.shadowColor = '#ff0000';
-            ctx.shadowBlur = punchExtend > 0 ? 15 : 0;
+        if (fighter === FighterType.IRON_BOXER && !isBack) {
+            // Massive glowing boxing glove
+            ctx.fillStyle = punchT || smashT ? '#ff0055' : '#aa0000';
+            ctx.shadowColor = '#ff0055';
+            ctx.beginPath(); ctx.arc(0, armW, armW * 1.8, 0, Math.PI * 2); ctx.fill();
+        } else if (fighter === FighterType.SHADOW_NINJA && !isBack) {
+            // Energy blade
+            ctx.fillStyle = '#222';
+            ctx.beginPath(); ctx.arc(0, armW / 2, armW, 0, Math.PI * 2); ctx.fill(); // hand
+            ctx.fillStyle = '#ff003c';
+            ctx.shadowColor = '#ff003c';
+            ctx.shadowBlur = 15;
+            ctx.fillRect(-2, armW, 4, 35); // blade
         } else {
-            ctx.fillStyle = isBack ? darken(color, 20) : lighten(color, 30);
+            ctx.fillStyle = isBack ? darken(color, 60) : lighten(color, 20);
+            ctx.beginPath(); ctx.arc(0, armW / 2, armW * 1.2, 0, Math.PI * 2); ctx.fill();
         }
-        ctx.beginPath();
-        ctx.arc(0, 0, handSize, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.shadowBlur = 0;
 
         ctx.restore();
     }
 
-    private static drawLegs(
-        ctx: CanvasRenderingContext2D,
-        bw: number, bh: number, bodyY: number,
-        legLen: number, legW: number,
-        walkCycle: number, kickExtend: number, inKO: boolean,
-        color: string, fighter: FighterType
-    ) {
-        const hipY = bodyY + bh;
-        const legColor = darken(color, 40);
-        const footColor = '#111';
+    private static drawLeg(ctx: CanvasRenderingContext2D, bw: number, bh: number, bodyY: number, legLen: number, isBack: boolean, walkCycle: number, kickT: number, inKO: boolean, color: string, t: number) {
+        ctx.save();
+        const hipX = isBack ? -bw * 0.4 : bw * 0.4;
+        const hipY = bodyY + bh - 5;
+        ctx.translate(hipX, hipY);
 
-        [-1, 1].forEach((side, i) => {
-            ctx.save();
-            ctx.translate(side * bw * 0.45, hipY);
+        let upperAngle = isBack ? 0.2 : -0.2;
+        let lowerAngle = 0.3;
 
-            let upperAngle = side * 0.15;
-            let lowerAngle = side * 0.05;
+        if (inKO) {
+            upperAngle = isBack ? 0.5 : -0.3;
+            lowerAngle = 0.1;
+        } else if (kickT > 0 && !isBack) {
+            upperAngle = -1.5;   // massive high kick
+            lowerAngle = 0.1;    // straight out
+            ctx.shadowColor = '#fff';
+            ctx.shadowBlur = 20;
+        } else if (walkCycle !== 0) {
+            upperAngle = (isBack ? -walkCycle : walkCycle) * 0.6;
+            lowerAngle = walkCycle * (isBack ? 1 : -1) > 0 ? 0 : 0.6; // bend knee on backswing
+        }
 
-            if (walkCycle !== 0 && !inKO) {
-                upperAngle = side * walkCycle * 0.5;
-                lowerAngle = -Math.abs(walkCycle) * 0.4;
-            }
-            if (kickExtend > 0 && i === 1) { // front leg kicks
-                upperAngle = -1.4;
-                lowerAngle = 0.3;
-            }
+        const legW = 14;
+        const l1 = legLen * 0.5;
+        const l2 = legLen * 0.5;
 
-            ctx.rotate(upperAngle);
-            // Thigh
-            ctx.fillStyle = legColor;
-            ctx.beginPath();
-            ctx.roundRect(-legW / 2, 0, legW, legLen * 0.5, 3);
-            ctx.fill();
+        // Thigh
+        ctx.rotate(upperAngle);
+        ctx.fillStyle = darken(color, isBack ? 60 : 30);
+        ctx.beginPath(); ctx.roundRect(-legW / 2, 0, legW, l1 + legW / 2, legW / 2); ctx.fill();
 
-            ctx.translate(0, legLen * 0.5);
-            ctx.rotate(lowerAngle);
+        // Knee Joint
+        ctx.translate(0, l1);
+        ctx.fillStyle = '#111';
+        ctx.beginPath(); ctx.arc(0, 0, legW * 0.6, 0, Math.PI * 2); ctx.fill();
 
-            // Shin
-            ctx.fillStyle = darken(legColor, 15);
-            ctx.beginPath();
-            ctx.roundRect(-legW / 2, 0, legW, legLen * 0.5, 3);
-            ctx.fill();
+        // Shin
+        ctx.rotate(lowerAngle);
+        ctx.fillStyle = darken(color, isBack ? 70 : 40);
+        ctx.beginPath(); ctx.roundRect(-legW * 0.4, 0, legW * 0.8, l2, legW * 0.4); ctx.fill();
 
-            ctx.translate(0, legLen * 0.5);
+        // Boot
+        ctx.translate(0, l2);
+        ctx.fillStyle = isBack ? '#000' : '#222';
+        ctx.beginPath();
+        // Pointy boot forward
+        ctx.moveTo(-legW, 0);
+        ctx.lineTo(legW * 1.5, 0);
+        ctx.lineTo(legW * 1.5, 12);
+        ctx.lineTo(-legW, 12);
+        ctx.fill();
 
-            // Shoe / Foot
-            ctx.fillStyle = footColor;
-            ctx.beginPath();
-            ctx.roundRect(-legW / 2 - 2, 0, legW + 10, legW * 0.8, 2);
-            ctx.fill();
-
-            ctx.restore();
-        });
+        ctx.restore();
     }
 
-    private static drawSpecialEffect(ctx: CanvasRenderingContext2D, bw: number, bodyY: number, facing: string, t: number) {
+    private static drawEnergyAura(ctx: CanvasRenderingContext2D, bodyY: number, bh: number, color: string, t: number) {
         ctx.save();
-        const dir = facing === 'right' ? 1 : -1;
-        ctx.translate(dir * (bw + 40), bodyY * 0.6);
-        const pulse = 0.7 + Math.sin(t * 20) * 0.3;
-        ctx.globalAlpha = pulse;
-        const grad = ctx.createRadialGradient(0, 0, 5, 0, 0, 35 * pulse);
-        grad.addColorStop(0, 'rgba(0, 240, 255, 0.9)');
-        grad.addColorStop(0.5, 'rgba(0, 120, 255, 0.6)');
-        grad.addColorStop(1, 'rgba(0, 0, 200, 0)');
+        ctx.translate(0, bodyY + bh * 0.5);
+        ctx.globalCompositeOperation = 'screen';
+
+        const pulse = 0.5 + Math.abs(Math.sin(t * 30)) * 0.5;
+
+        const grad = ctx.createRadialGradient(0, 0, 10, 0, 0, 80 * pulse);
+        grad.addColorStop(0, `rgba(255, 255, 255, 0.9)`);
+        grad.addColorStop(0.3, color);
+        grad.addColorStop(1, 'rgba(0,0,0,0)');
+
         ctx.fillStyle = grad;
         ctx.beginPath();
-        ctx.arc(0, 0, 35 * pulse, 0, Math.PI * 2);
+        ctx.arc(0, 0, 80 * pulse, 0, Math.PI * 2);
         ctx.fill();
-        ctx.globalAlpha = 1;
+
         ctx.restore();
     }
 }
 
-// Color helpers
+// Color Utility Functions
 function hexToRgb(hex: string): [number, number, number] {
-    const r = parseInt(hex.slice(1, 3), 16);
-    const g = parseInt(hex.slice(3, 5), 16);
-    const b = parseInt(hex.slice(5, 7), 16);
-    return [r, g, b];
+    if (hex.startsWith('#')) hex = hex.slice(1);
+    if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+    const num = parseInt(hex, 16);
+    return [num >> 16, (num >> 8) & 255, num & 255];
 }
-function lighten(hex: string, amt: number): string {
-    try {
-        const [r, g, b] = hexToRgb(hex);
-        return `rgb(${Math.min(255, r + amt)},${Math.min(255, g + amt)},${Math.min(255, b + amt)})`;
-    } catch { return hex; }
+
+function lighten(hex: string, percent: number): string {
+    const [r, g, b] = hexToRgb(hex);
+    const adjust = Math.floor(255 * (percent / 100));
+    const nr = Math.min(255, r + adjust);
+    const ng = Math.min(255, g + adjust);
+    const nb = Math.min(255, b + adjust);
+    return `rgb(${nr}, ${ng}, ${nb})`;
 }
-function darken(hex: string, amt: number): string {
-    try {
-        const [r, g, b] = hexToRgb(hex);
-        return `rgb(${Math.max(0, r - amt)},${Math.max(0, g - amt)},${Math.max(0, b - amt)})`;
-    } catch { return hex; }
+
+function darken(hex: string, percent: number): string {
+    const [r, g, b] = hexToRgb(hex);
+    const adjust = Math.floor(255 * (percent / 100));
+    const nr = Math.max(0, r - adjust);
+    const ng = Math.max(0, g - adjust);
+    const nb = Math.max(0, b - adjust);
+    return `rgb(${nr}, ${ng}, ${nb})`;
 }

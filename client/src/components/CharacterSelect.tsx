@@ -103,7 +103,7 @@ export const CharacterSelect = () => {
                                         <p className="text-gray-400">{getFighterDetails(me.fighter)?.desc}</p>
                                     </div>
 
-                                    <div className="flex flex-col gap-4 mt-8">
+                                    <div className="flex flex-col gap-4 mt-8 pb-12">
                                         {(['speed', 'power', 'defense'] as const).map(stat => (
                                             <div key={stat}>
                                                 <div className="flex justify-between text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">
@@ -239,7 +239,7 @@ export const CharacterSelect = () => {
                                             <p className="text-gray-500">{getFighterDetails(opponent.fighter)?.desc}</p>
                                         </div>
 
-                                        <div className="flex flex-col gap-4 mt-8">
+                                        <div className="flex flex-col gap-4 mt-8 pb-12">
                                             {(['speed', 'power', 'defense'] as const).map(stat => (
                                                 <div key={stat}>
                                                     <div className="flex justify-between text-xs font-bold text-gray-600 uppercase tracking-widest mb-2 flex-row-reverse">
