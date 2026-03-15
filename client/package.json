@@ -9,13 +9,13 @@
         "preview": "vite preview"
     },
     "dependencies": {
-        "framer-motion": "^11.0.8",
+        "@rage-arena/shared": "*",
+        "framer-motion": "^11.18.2",
         "lucide-react": "^0.344.0",
         "react": "^18.2.0",
         "react-dom": "^18.2.0",
         "socket.io-client": "^4.7.4",
-        "zustand": "^4.5.2",
-        "@rage-arena/shared": "*"
+        "zustand": "^4.5.2"
     },
     "devDependencies": {
         "@tailwindcss/vite": "^4.0.0",
