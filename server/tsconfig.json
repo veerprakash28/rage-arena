@@ -1,21 +1,16 @@
 {
     "extends": "../tsconfig.base.json",
     "compilerOptions": {
+        "outDir": "dist",
+        "rootDir": "src",
+        "target": "ES2022",
         "module": "CommonJS",
         "moduleResolution": "Node",
-        "outDir": "dist",
-        "baseUrl": ".",
-        "paths": {
-            "@rage-arena/shared": [
-                "../shared/src/index.ts"
-            ]
-        },
         "types": [
             "node"
         ]
     },
     "include": [
-        "src/**/*",
-        "../shared/src/**/*"
+        "src/**/*"
     ]
 }
