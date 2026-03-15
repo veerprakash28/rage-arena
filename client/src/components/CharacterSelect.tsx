@@ -4,6 +4,7 @@ import { socket } from '../socket';
 import { FighterType } from '@rage-arena/shared';
 import { Users, Copy, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { FighterPreview } from './3d/FighterPreview';
 
 const FIGHTERS = [
     { id: FighterType.SHADOW_NINJA, name: 'Shadow Ninja', desc: 'Fast attacks, high mobility.', color: '#ef4444', accent: 'from-red-600 to-red-900', stats: { speed: 9, power: 4, defense: 3 } },
@@ -86,43 +87,48 @@ export const CharacterSelect = () => {
                     </div>
 
                     <h2 className="text-xl font-bold tracking-widest text-gray-400 mb-2 uppercase">{me?.name}</h2>
-                    <div className="flex-1 bg-gradient-to-br from-white/5 to-transparent border border-white/10 rounded-3xl p-8 backdrop-blur-sm relative overflow-hidden group">
+                    <div className="flex-1 bg-gradient-to-br from-white/5 to-transparent border border-white/10 rounded-3xl p-8 backdrop-blur-sm relative overflow-hidden group flex flex-col">
                         {me?.fighter ? (
-                            <AnimatePresence mode="wait">
-                                <motion.div
-                                    key={me.fighter}
-                                    initial={{ opacity: 0, x: -20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    exit={{ opacity: 0, x: 20 }}
-                                    className="h-full flex flex-col justify-between relative z-10"
-                                >
-                                    <div>
-                                        <h3 className="text-5xl font-black italic tracking-tight uppercase leading-none mb-4">
-                                            {getFighterDetails(me.fighter)?.name}
-                                        </h3>
-                                        <p className="text-gray-400">{getFighterDetails(me.fighter)?.desc}</p>
-                                    </div>
+                            <>
+                                <div className="absolute inset-0 z-0 pointer-events-none opacity-80">
+                                    <FighterPreview player={me as any} />
+                                </div>
+                                <AnimatePresence mode="wait">
+                                    <motion.div
+                                        key={me.fighter}
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        exit={{ opacity: 0 }}
+                                        className="h-full flex flex-col justify-between relative z-10"
+                                    >
+                                        <div>
+                                            <h3 className="text-5xl font-black italic tracking-tight uppercase leading-none mb-4 drop-shadow-[0_0_10px_rgba(0,0,0,0.8)]">
+                                                {getFighterDetails(me.fighter)?.name}
+                                            </h3>
+                                            <p className="text-gray-300 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">{getFighterDetails(me.fighter)?.desc}</p>
+                                        </div>
 
-                                    <div className="flex flex-col gap-4 mt-8 pb-12">
-                                        {(['speed', 'power', 'defense'] as const).map(stat => (
-                                            <div key={stat}>
-                                                <div className="flex justify-between text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">
-                                                    <span>{stat}</span>
-                                                    <span>{getFighterDetails(me.fighter)?.stats[stat]}/10</span>
+                                        <div className="flex flex-col gap-4 mt-auto pb-12">
+                                            {(['speed', 'power', 'defense'] as const).map(stat => (
+                                                <div key={stat} className="bg-black/20 p-2 rounded-lg backdrop-blur-md border border-white/5">
+                                                    <div className="flex justify-between text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">
+                                                        <span>{stat}</span>
+                                                        <span>{getFighterDetails(me.fighter)?.stats[stat]}/10</span>
+                                                    </div>
+                                                    <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
+                                                        <motion.div
+                                                            initial={{ width: 0 }}
+                                                            animate={{ width: `${(getFighterDetails(me.fighter)?.stats[stat] || 0) * 10}%` }}
+                                                            transition={{ duration: 0.5, ease: "easeOut" }}
+                                                            className="h-full bg-white rounded-full shadow-[0_0_10px_rgba(255,255,255,0.5)]"
+                                                        />
+                                                    </div>
                                                 </div>
-                                                <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
-                                                    <motion.div
-                                                        initial={{ width: 0 }}
-                                                        animate={{ width: `${(getFighterDetails(me.fighter)?.stats[stat] || 0) * 10}%` }}
-                                                        transition={{ duration: 0.5, ease: "easeOut" }}
-                                                        className="h-full bg-white rounded-full"
-                                                    />
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </motion.div>
-                            </AnimatePresence>
+                                            ))}
+                                        </div>
+                                    </motion.div>
+                                </AnimatePresence>
+                            </>
                         ) : (
                             <div className="absolute inset-0 flex items-center justify-center">
                                 <span className="text-gray-600 font-medium tracking-widest uppercase">Select your fighter</span>
@@ -221,44 +227,49 @@ export const CharacterSelect = () => {
                     </div>
 
                     <h2 className="text-xl font-bold tracking-widest text-gray-400 mb-2 uppercase text-right">{opponent?.name || 'WAITING'}</h2>
-                    <div className="flex-1 bg-gradient-to-bl from-white/5 to-transparent border border-white/10 rounded-3xl p-8 backdrop-blur-sm relative overflow-hidden">
+                    <div className="flex-1 bg-gradient-to-bl from-white/5 to-transparent border border-white/10 rounded-3xl p-8 backdrop-blur-sm relative overflow-hidden flex flex-col">
                         {opponent ? (
                             opponent.fighter ? (
-                                <AnimatePresence mode="wait">
-                                    <motion.div
-                                        key={opponent.fighter}
-                                        initial={{ opacity: 0, x: 20 }}
-                                        animate={{ opacity: 1, x: 0 }}
-                                        exit={{ opacity: 0, x: -20 }}
-                                        className="h-full flex flex-col justify-between relative z-10 text-right"
-                                    >
-                                        <div>
-                                            <h3 className="text-5xl font-black italic tracking-tight uppercase leading-none mb-4 text-gray-300">
-                                                {getFighterDetails(opponent.fighter)?.name}
-                                            </h3>
-                                            <p className="text-gray-500">{getFighterDetails(opponent.fighter)?.desc}</p>
-                                        </div>
+                                <>
+                                    <div className="absolute inset-0 z-0 pointer-events-none opacity-80">
+                                        <FighterPreview player={opponent as any} />
+                                    </div>
+                                    <AnimatePresence mode="wait">
+                                        <motion.div
+                                            key={opponent.fighter}
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                            exit={{ opacity: 0 }}
+                                            className="h-full flex flex-col justify-between relative z-10 text-right"
+                                        >
+                                            <div>
+                                                <h3 className="text-5xl font-black italic tracking-tight uppercase leading-none mb-4 text-gray-100 drop-shadow-[0_0_10px_rgba(0,0,0,0.8)]">
+                                                    {getFighterDetails(opponent.fighter)?.name}
+                                                </h3>
+                                                <p className="text-gray-400 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">{getFighterDetails(opponent.fighter)?.desc}</p>
+                                            </div>
 
-                                        <div className="flex flex-col gap-4 mt-8 pb-12">
-                                            {(['speed', 'power', 'defense'] as const).map(stat => (
-                                                <div key={stat}>
-                                                    <div className="flex justify-between text-xs font-bold text-gray-600 uppercase tracking-widest mb-2 flex-row-reverse">
-                                                        <span>{stat}</span>
-                                                        <span>{getFighterDetails(opponent.fighter)?.stats[stat]}/10</span>
+                                            <div className="flex flex-col gap-4 mt-auto pb-12">
+                                                {(['speed', 'power', 'defense'] as const).map(stat => (
+                                                    <div key={stat} className="bg-black/20 p-2 rounded-lg backdrop-blur-md border border-white/5">
+                                                        <div className="flex justify-between text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 flex-row-reverse">
+                                                            <span>{stat}</span>
+                                                            <span>{getFighterDetails(opponent.fighter)?.stats[stat]}/10</span>
+                                                        </div>
+                                                        <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden flex justify-end">
+                                                            <motion.div
+                                                                initial={{ width: 0 }}
+                                                                animate={{ width: `${(getFighterDetails(opponent.fighter)?.stats[stat] || 0) * 10}%` }}
+                                                                transition={{ duration: 0.5, ease: "easeOut" }}
+                                                                className="h-full bg-red-500 rounded-full shadow-[0_0_10px_rgba(239,68,68,0.3)]"
+                                                            />
+                                                        </div>
                                                     </div>
-                                                    <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden flex justify-end">
-                                                        <motion.div
-                                                            initial={{ width: 0 }}
-                                                            animate={{ width: `${(getFighterDetails(opponent.fighter)?.stats[stat] || 0) * 10}%` }}
-                                                            transition={{ duration: 0.5, ease: "easeOut" }}
-                                                            className="h-full bg-gray-500 rounded-full"
-                                                        />
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </motion.div>
-                                </AnimatePresence>
+                                                ))}
+                                            </div>
+                                        </motion.div>
+                                    </AnimatePresence>
+                                </>
                             ) : (
                                 <div className="absolute inset-0 flex items-center justify-center">
                                     <span className="text-gray-600 font-medium tracking-widest uppercase">Selecting fighter</span>
