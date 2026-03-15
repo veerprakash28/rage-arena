@@ -53,6 +53,15 @@ export function setupHandlers(io: Server, roomManager: RoomManager, gameEngine: 
             }
         });
 
+        socket.on('return-to-lobby', ({ code }) => {
+            const room = roomManager.getRoom(code);
+            if (room && room.status === 'results') {
+                roomManager.setStatus(code, 'waiting');
+                room.players.forEach(p => { p.isReady = false; });
+                io.to(code).emit('room-update', room);
+            }
+        });
+
         socket.on('chat-message', ({ code, text }) => {
             const room = roomManager.getRoom(code);
             if (!room) return;

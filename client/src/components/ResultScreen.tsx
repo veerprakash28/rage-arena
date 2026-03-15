@@ -7,10 +7,8 @@ export const ResultScreen = () => {
     if (!gameState || gameState.status !== 'ko' && gameState.status !== 'results') return null;
 
     const handleLobby = () => {
-        // They can leave room? Or just un-ready
-        // The server sets everyone to unready if we stay in room.
-        // For now, emit a return-to-lobby to just set status = waiting
-        socket.emit('player-ready', { code: roomCode, ready: false });
+        // Emit formal event to reset room status
+        socket.emit('return-to-lobby', { code: roomCode });
     };
 
     const myId = Object.values(gameState.players).find(p => p.name === playerName)?.id;

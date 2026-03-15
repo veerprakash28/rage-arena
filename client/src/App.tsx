@@ -15,10 +15,9 @@ function App() {
 
             // Auto-transition based on room status
             const currentScreen = useStore.getState().screen;
-            if (room.status === 'waiting' && currentScreen === 'home') {
-                // If we just joined, go to character select or lobby
-                // Let's go to lobby first, but from there they select fighter
-                setScreen('select'); // Actually, let's go straight to select, it acts as lobby
+            if (room.status === 'waiting' && (currentScreen === 'home' || currentScreen === 'results' || currentScreen === 'fight')) {
+                // If we just joined from home, or returned from results, go to character select
+                setScreen('select');
             }
             else if (room.status === 'countdown' || room.status === 'playing') {
                 if (currentScreen !== 'fight') setScreen('fight');
