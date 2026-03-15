@@ -22,7 +22,13 @@
         "noFallthroughCasesInSwitch": true,
         "types": [
             "vite/client"
-        ]
+        ],
+        "baseUrl": ".",
+        "paths": {
+            "@rage-arena/shared": [
+                "../shared/src/index.ts"
+            ]
+        }
     },
     "include": [
         "src"
